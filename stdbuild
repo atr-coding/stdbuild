@@ -15,8 +15,8 @@ namespace std::build {
 
 	namespace internal {
 		struct Options {
-			std::filesystem::path build_dir;
-			std::filesystem::path bin_dir;
+			std::filesystem::path build_dir{ "build/" };
+			std::filesystem::path bin_dir{ "bin/" };
 			bool debug{ false };
 		};
 
@@ -51,100 +51,137 @@ namespace std::build {
 		return options().debug;
 	}
 
-	enum class Type : unsigned int { static_library, shared_library, executable };
+	enum class type : unsigned int { static_library, shared_library, executable };
 
-	template<typename T>
-	class Collection {
+	class project {
 	public:
-		Collection() = default;
-		Collection(const std::vector<T>& collection) : m_collection(collection) {}
-		Collection(std::vector<T>&& collection) : m_collection(std::move(collection)) {}
-
-		void add(const T& str) {
-			m_collection.push_back(str);
-		}
-
-		template<typename... Ts>
-		void add(const T& str, const Ts&... strs) {
-			add(str);
-			add(strs...);
-		}
-
-		std::vector<T>& get() {
-			return m_collection;
-		}
-
-		const std::vector<T>& get() const {
-			return m_collection;
-		}
-
-		const std::size_t size() const {
-			return m_collection.size();
-		}
+		using build_type = type;
 		
-		void operator+=(const Collection& other) {
-			m_collection.insert(m_collection.end(), other.m_collection.begin(), other.m_collection.end());
-		}
-
-		void operator=(const std::vector<T>& other) {
-			m_collection = other;
-		}
-
-		void operator=(std::vector<T>&& other) {
-			m_collection = std::move(other);
-		}
-	protected:
-		std::vector<T> m_collection;
-	};
-
-	struct BuildInfo;
-	class BuildCollection : public Collection<const BuildInfo*> {
 	public:
-		void add(const BuildInfo& dependency) {
-			m_collection.push_back(&dependency);
-		}
+		project(const std::string& name, build_type type) : m_name(name), m_type(type) {}
+		project(const std::string& name) : m_name(name) {}
+		
+	public:
+		std::vector<const project*>& dependencies() { return m_dependencies; }
+		const std::vector<const project*>& dependencies() const { return m_dependencies; }
 
-		template<typename... Ts>
-		void add(const BuildInfo& dependency, const Ts&... dependencies) {
-			add(dependency);
-			add(dependencies...);
-		}
+		std::string& name() { return m_name; }
+		const std::string& name() const { return m_name; }
+
+		std::filesystem::path directory() { return m_dir; }
+		const std::filesystem::path directory() const { return m_dir; }
+
+		build_type type() { return m_type; }
+		const build_type type() const { return m_type; }
+
+		std::vector<std::filesystem::path>& include_directories() { return m_include_dirs; }
+		const std::vector<std::filesystem::path>& include_directories() const { return m_include_dirs; }
+
+		std::vector<std::filesystem::path>& files() { return m_files; }
+		const std::vector<std::filesystem::path>& files() const { return m_files; }
+
+		std::vector<std::filesystem::path>& library_directories() { return m_library_dirs; }
+		const std::vector<std::filesystem::path>& library_directories() const { return m_library_dirs; }
+
+		std::vector<std::string>& flags() { return m_flags; }
+		const std::vector<std::string>& flags() const { return m_flags; }
+
+		std::vector<std::string>& libraries() { return m_libraries; }
+		const std::vector<std::string>& libraries() const { return m_libraries; }
+
+		std::vector<std::string>& pre_build_commands() { return m_pre_build_cmds; }
+		const std::vector<std::string>& pre_build_commands() const { return m_pre_build_cmds; }
+
+		std::vector<std::string>& post_build_commands() { return m_post_build_cmds; }
+		const std::vector<std::string>& post_build_commands() const { return m_post_build_cmds; }
+
+	public:
+		template<typename... Files>
+		friend void add_source_files(project& info, const Files&... files);
+
+		template<typename... Flags>
+		friend void add_flags(project& info, const Flags&... flags);
+
+		template<typename... IncludeDirs>
+		friend void add_include_directories(project& info, const IncludeDirs&... dirs);
+
+		template<typename... LibDirs>
+		friend void add_library_directories(project& info, const LibDirs&... dirs);
+
+		template<typename... Libs>
+		friend void add_libraries(project& info, const Libs&... libs);
+
+		template<typename... Dependencies>
+		friend void add_dependencies(project& info, const Dependencies&... depends);
+
+		template<typename... PreBuildCommands>
+		friend void add_pre_build_commands(project& info, const PreBuildCommands&... commands);
+
+		template<typename... PostBuildCommands>
+		friend void add_post_build_commands(project& info, const PostBuildCommands&... commands);
+
+		friend void set_directory(project& info, std::filesystem::path directory);
+
+		friend void set_type(project& info, build_type new_type);
+
+	private:
+		std::vector<const project*> m_dependencies;
+		std::string m_name;
+		std::filesystem::path m_dir { "." };
+		build_type m_type { build_type::executable };
+		std::vector<std::filesystem::path> m_include_dirs, m_files, m_library_dirs;
+		std::vector<std::string> m_flags, m_libraries, m_pre_build_cmds, m_post_build_cmds;
 	};
 
-	struct BuildInfo {
-		Collection<std::filesystem::path> include_dirs, files, library_dirs;
-		Collection<std::string> flags, libraries, pre_build_cmds, post_build_cmds;
-		BuildCollection dependencies;
-		std::string name;
-		std::filesystem::path dir;
-		Type type;
+	template<typename... Files>
+	void add_source_files(project& info, const Files&... files) { (info.m_files.push_back(files), ...); }
 
-		BuildInfo(const std::string& t_name, Type t_type) : name(t_name), type(t_type) {}
-	};
+	template<typename... Flags>
+	void add_flags(project& info, const Flags&... flags) { (info.m_flags.push_back(flags), ...); }
+
+	template<typename... IncludeDirs>
+	void add_include_directories(project& info, const IncludeDirs&... dirs) { (info.m_include_dirs.push_back(dirs), ...); }
+
+	template<typename... LibDirs>
+	void add_library_directories(project& info, const LibDirs&... dirs) { (info.m_library_dirs.push_back(dirs), ...); }
+
+	template<typename... Libs>
+	void add_libraries(project& info, const Libs&... libs) { (info.m_libraries.push_back(libs), ...); }
+
+	template<typename... Dependencies>
+	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
+
+	template<typename... PreBuildCommands>
+	void add_pre_build_commands(project& info, const PreBuildCommands&... commands) { (info.m_pre_build_cmds.push_back(commands), ...); }
+	
+	template<typename... PostBuildCommands>
+	void add_post_build_commands(project& info, const PostBuildCommands&... commands) { (info.m_post_build_cmds.push_back(commands), ...); }
+
+	void set_directory(project& info, std::filesystem::path directory) { info.m_dir = directory; }
+
+	void set_type(project& info, type new_type) { info.m_type = new_type; }
 
 	struct Library {
 	public:
-		Library(std::filesystem::path location, std::filesystem::path file_name, Type type) : m_location(location), m_file_name(file_name), m_type(type) {}
+		using build_type = type;
+		
+	public:
+		Library(std::filesystem::path location, std::filesystem::path file_name, build_type type) : m_location(location), m_file_name(file_name), m_type(type) {}
 
-		const std::filesystem::path location() const {
-			return m_location;
-		}
+		const std::filesystem::path location() const { return m_location; }
 
-		const std::filesystem::path file_name() const {
-			return m_file_name;
-		}
-
-		const Type type() const {
-			return m_type;
-		}
+		const std::filesystem::path file_name() const { return m_file_name; }
+		
+		const build_type type() const { return m_type; }
+		
 	private:
 		std::filesystem::path m_location;
 		std::filesystem::path m_file_name;
-		Type m_type;
+		build_type m_type;
 	};
 
-	inline std::vector<std::filesystem::path> compile(const BuildInfo& info) {
-		auto build_dir = options().build_dir / info.name;
+	inline std::vector<std::filesystem::path> compile(const project& info) {
+		auto build_dir = options().build_dir / info.name();
 
 		if (!std::filesystem::exists(build_dir)) {
 			std::filesystem::create_directory(build_dir);
@@ -152,12 +189,12 @@ namespace std::build {
 
 		std::vector<std::filesystem::path> obj_files;
 
-		for (const auto& f : info.files.get()) {
+		for (const auto& f : info.files()) {
 			std::stringstream output;
 			output << "g++ -c ";
-			for (const auto& f : info.flags.get()) { output << f << ' '; }
-			for (const auto& i : info.include_dirs.get()) { output << "-I" << i << ' '; }
-			output << info.dir / f;
+			for (const auto& f : info.flags()) { output << f << ' '; }
+			for (const auto& i : info.include_directories()) { output << "-I" << i << ' '; }
+			output << info.directory() / f;
 			auto obj_path = (build_dir / f.stem()).replace_extension(".o");
 			output << " -o " << obj_path;
 			obj_files.push_back(std::move(obj_path));
@@ -167,13 +204,18 @@ namespace std::build {
 		return obj_files;
 	}
 
-	inline Library create_static_library(const BuildInfo& info) {
-		std::cout << "\nCreating static library: " << info.name << '\n';
+	inline Library create_static_library(const project& info) {
+		std::cout << "\nCreating static library: " << info.name() << '\n';
 		auto bin_dir = options().bin_dir;
+
+		if (!std::filesystem::exists(bin_dir)) {
+			std::filesystem::create_directory(bin_dir);
+		}
+
 		std::cout << "\tCompiling...\n\t";
 		auto objs = compile(info);
 
-		auto file = std::filesystem::path("lib" + info.name).replace_extension(".a");
+		auto file = std::filesystem::path("lib" + info.name()).replace_extension(".a");
 		std::cout << "\tOutput directory: " << bin_dir << '\n';
 		std::cout << "\tOutput file name: " << file << '\n';
 
@@ -186,37 +228,42 @@ namespace std::build {
 		std::cout << '\t';
 		command(output.str());
 
-		return Library(bin_dir, std::filesystem::path(info.name), std::build::Type::static_library);
+		return Library(bin_dir, std::filesystem::path(info.name()), std::build::type::static_library);
 	}
 
-	inline void create_executable(BuildInfo& info) {
-		std::cout << "Creating executable: " << info.name << "\n";
+	inline void create_executable(project& info) {
+
+		std::cout << "Creating executable: " << info.name() << "\n";
 		auto bin_dir = options().bin_dir;
 
+		if (!std::filesystem::exists(bin_dir)) {
+			std::filesystem::create_directory(bin_dir);
+		}
+
 		// Transform include & library directories by prepending the project's working directory
-		for (auto& id : info.include_dirs.get()) { id = info.dir / id; }
-		for (auto& ld : info.library_dirs.get()) { ld = info.dir / ld; }
+		for (auto& id : info.include_directories()) { id = info.directory() / id; }
+		for (auto& ld : info.library_directories()) { ld = info.directory() / ld; }
 
 
-		auto dependencies = info.dependencies.get();
+		auto dependencies = info.dependencies();
 		if (dependencies.size() > 0) {
 			std::cout << "Building dependencies.\n";
-			for (auto dependency : dependencies) {
+			for (auto& dependency : dependencies) {
 				auto lib = create_static_library(*dependency);
-				info.library_dirs.add(lib.location());
-				info.libraries.add(lib.file_name().string());
-				for (const auto& inc : dependency->include_dirs.get()) {
-					info.include_dirs.add(dependency->dir / inc);
+				info.library_directories().push_back(lib.location());
+				info.libraries().push_back(lib.file_name().string());
+				for (const auto& inc : dependency->include_directories()) {
+					info.include_directories().push_back(dependency->directory() / inc);
 				}
 			}
 		}
 
-		if (info.pre_build_cmds.size() > 0) {
+		if (info.pre_build_commands().size() > 0) {
 			std::cout << "Running pre-build commands.\n";
-			for (const auto& cmd : info.pre_build_cmds.get()) { command(cmd); }
+			for (const auto& cmd : info.pre_build_commands()) { command(cmd); }
 		}
 
-		if (info.files.size() > 0) {
+		if (info.files().size() > 0) {
 			std::cout << "Compiling...\n";
 			auto objs = compile(info);
 
@@ -226,15 +273,15 @@ namespace std::build {
 			for (const auto& obj : objs) {
 				output << obj << " ";
 			}
-			output << " -o " << (bin_dir / info.name) << ' ';
-			for (const auto& ld : info.library_dirs.get()) { output << "-L" << ld << ' '; }
-			for (const auto& l : info.libraries.get()) { output << "-l" << l << ' '; }
+			output << " -o " << (bin_dir / info.name()) << ' ';
+			for (const auto& ld : info.library_directories()) { output << "-L" << ld << ' '; }
+			for (const auto& l : info.libraries()) { output << "-l" << l << ' '; }
 			command(output.str());
 		}
 
-		if (info.post_build_cmds.size() > 0) {
+		if (info.post_build_commands().size() > 0) {
 			std::cout << "Running post-build commands.\n";
-			for (const auto& cmd : info.post_build_cmds.get()) { command(cmd); }
+			for (const auto& cmd : info.post_build_commands()) { command(cmd); }
 		}
 	}
 }

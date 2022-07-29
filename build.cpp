@@ -4,25 +4,17 @@
 
 using namespace std::build;
 
-BuildInfo project() {
-	BuildInfo build("project", Type::executable);
-	build.dir = "project";
-	build.flags.add("-std=c++20");
-	build.include_dirs.add("include");
-	build.files.add("src/main.cpp");
-	return std::move(build);
-}
-
 int main() {
-	set_bin_directory("bin/");
-	set_build_directory("build/");
 	enable_debugging();
 
 	auto module = module::build();
 	
-	auto proj = project();
-	proj.dependencies.add(module);
-	
+	project proj("project", type::executable);
+	set_directory(proj, "project");
+	add_flags(proj, "-std=c++20");
+	add_include_directories(proj, "include/");
+	add_source_files(proj, "src/main.cpp");
+	add_dependencies(proj, module);
 	create_executable(proj);
 }
 
