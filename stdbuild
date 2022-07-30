@@ -16,7 +16,7 @@ namespace std::build {
 	}
 
 	////////////// Options //////////////
-	
+
 	namespace internal {
 		struct Options {
 			std::filesystem::path build_dir{ "build/" };
@@ -60,7 +60,7 @@ namespace std::build {
 	enum class type : unsigned int { static_library, shared_library, executable };
 
 	////////////// Version //////////////
-	
+
 	struct version {
 		constexpr version() = default;
 		constexpr version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
@@ -80,7 +80,7 @@ namespace std::build {
 	};
 
 	////////////// Project //////////////
-	
+
 	class project {
 	public:
 		using build_type = type;
@@ -89,7 +89,7 @@ namespace std::build {
 	public:
 		project(const std::string& name, build_type type) : m_name(name), m_type(type) {}
 		project(const std::string& name) : m_name(name) {}
-		
+
 	public:
 		std::vector<const project*>& dependencies() { return m_dependencies; }
 		const std::vector<const project*>& dependencies() const { return m_dependencies; }
@@ -124,18 +124,23 @@ namespace std::build {
 	public:
 		template<typename... Files> requires internal::IsAllSame<std::string, Files...>
 		friend void add_source_files(project& info, const Files&... files);
+		friend void add_source_files(project& info, const std::vector<std::string>& files);
 
 		template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
 		friend void add_flags(project& info, const Flags&... flags);
+		friend void add_flags(project& info, const std::vector<std::string>& flags);
 
 		template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
 		friend void add_include_directories(project& info, const IncludeDirs&... dirs);
+		friend void add_include_directories(project& info, const std::vector<std::string>& dirs);
 
 		template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
 		friend void add_library_directories(project& info, const LibDirs&... dirs);
+		friend void add_library_directories(project& info, const std::vector<std::string>& dirs);
 
 		template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
 		friend void add_libraries(project& info, const Libs&... libs);
+		friend void add_libraries(project& info, const std::vector<std::string>& libs);
 
 		template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 		friend void add_dependencies(project& info, const Dependencies&... depends);
@@ -149,28 +154,32 @@ namespace std::build {
 	private:
 		std::vector<const project*> m_dependencies;
 		std::string m_name;
-		std::filesystem::path m_dir { "." };
-		build_type m_type { build_type::executable };
+		std::filesystem::path m_dir{ "." };
+		build_type m_type{ build_type::executable };
 		build_version m_version;
 		std::vector<std::filesystem::path> m_include_dirs, m_files, m_library_dirs;
 		std::vector<std::string> m_flags, m_libraries;
 	};
 
-	//typename = internal::VariadicIsSame<std::string, Files...>
 	template<typename... Files> requires internal::IsAllSame<std::string, Files...>
 	void add_source_files(project& info, const Files&... files) { (info.m_files.push_back(files), ...); }
+	void add_source_files(project& info, const std::vector<std::string>& files) { info.m_files.insert(info.m_files.end(), files.begin(), files.end()); }
 
 	template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
 	void add_flags(project& info, const Flags&... flags) { (info.m_flags.push_back(flags), ...); }
+	void add_flags(project& info, const std::vector<std::string>& flags) { info.m_flags.insert(info.m_flags.end(), flags.begin(), flags.end()); }
 
 	template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
 	void add_include_directories(project& info, const IncludeDirs&... dirs) { (info.m_include_dirs.push_back(dirs), ...); }
+	void add_include_directories(project& info, const std::vector<std::string>& dirs) { info.m_include_dirs.insert(info.m_include_dirs.end(), dirs.begin(), dirs.end()); }
 
 	template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
 	void add_library_directories(project& info, const LibDirs&... dirs) { (info.m_library_dirs.push_back(dirs), ...); }
+	void add_library_directories(project& info, const std::vector<std::string>& dirs) {info.m_library_dirs.insert(info.m_library_dirs.end(), dirs.begin(), dirs.end());}
 
 	template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
 	void add_libraries(project& info, const Libs&... libs) { (info.m_libraries.push_back(libs), ...); }
+	void add_libraries(project& info, const std::vector<std::string>& libs) { info.m_libraries.insert(info.m_libraries.end(), libs.begin(), libs.end()); }
 
 	template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
@@ -182,20 +191,20 @@ namespace std::build {
 	void set_version(project& info, const version& ver) { info.m_version = ver; }
 
 	////////////// Library //////////////
-	
+
 	struct Library {
 	public:
 		using build_type = type;
-		
+
 	public:
 		Library(std::filesystem::path location, std::filesystem::path file_name, build_type type) : m_location(location), m_file_name(file_name), m_type(type) {}
 
 		const std::filesystem::path location() const { return m_location; }
 
 		const std::filesystem::path file_name() const { return m_file_name; }
-		
+
 		const build_type type() const { return m_type; }
-		
+
 	private:
 		std::filesystem::path m_location;
 		std::filesystem::path m_file_name;
@@ -203,7 +212,7 @@ namespace std::build {
 	};
 
 	////////////// Compilation //////////////
-	
+
 	inline std::vector<std::filesystem::path> compile(const project& info) {
 		auto build_dir = options().build_dir / info.name();
 
@@ -229,7 +238,7 @@ namespace std::build {
 	}
 
 	////////////// Create Binaries //////////////
-	
+
 	inline Library create_static_library(const project& info) {
 		std::cout << "\nCreating static library: " << info.name() << '\n';
 		auto bin_dir = options().bin_dir;

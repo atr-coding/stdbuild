@@ -9,12 +9,14 @@ int main() {
 	enable_debugging();
 
 	auto module = module::build();
-	
+
+	std::vector<std::string> files = { "src/main.cpp", "src/test.cpp" };
+
 	project proj("project", type::executable);
 	set_directory(proj, "project");
-	add_flags(proj, "-std=c++20");
+	add_flags(proj, "-std=c++20", "-DTEST_DEF");
 	add_include_directories(proj, "include/");
-	add_source_files(proj, "src/main.cpp", "src/test.cpp");
+	add_source_files(proj, files);
 	add_dependencies(proj, module);
 	set_version(proj, { 0, 0, 1 });
 	create_executable(proj);
