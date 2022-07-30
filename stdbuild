@@ -5,6 +5,8 @@
 #include <string>
 #include <sstream>
 #include <filesystem>
+#include <type_traits>
+#include <cassert>
 
 namespace std::build {
 
@@ -13,6 +15,8 @@ namespace std::build {
 		std::system(cmd.c_str());
 	}
 
+	////////////// Options //////////////
+	
 	namespace internal {
 		struct Options {
 			std::filesystem::path build_dir{ "build/" };
@@ -20,6 +24,8 @@ namespace std::build {
 			bool debug{ false };
 		};
 
+		template<typename T1, typename... T2>
+		concept IsAllSame = std::conjunction_v<std::is_convertible<T2, T1>...>;
 	}
 
 	inline internal::Options& options() {
@@ -53,10 +59,33 @@ namespace std::build {
 
 	enum class type : unsigned int { static_library, shared_library, executable };
 
+	////////////// Version //////////////
+	
+	struct version {
+		constexpr version() = default;
+		constexpr version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
+		uint32_t major() { return m_major; }
+		const uint32_t major() const { return m_major; }
+		uint32_t minor() { return m_minor; }
+		const uint32_t minor() const { return m_minor; }
+		uint32_t patch() { return m_patch; }
+		const uint32_t patch() const { return m_patch; }
+		constexpr bool operator>(const version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
+		constexpr bool operator<(const version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
+		constexpr bool operator==(const version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
+		constexpr bool operator>=(const version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
+		constexpr bool operator<=(const version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
+	private:
+		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
+	};
+
+	////////////// Project //////////////
+	
 	class project {
 	public:
 		using build_type = type;
-		
+		using build_version = version;
+
 	public:
 		project(const std::string& name, build_type type) : m_name(name), m_type(type) {}
 		project(const std::string& name) : m_name(name) {}
@@ -74,6 +103,9 @@ namespace std::build {
 		build_type type() { return m_type; }
 		const build_type type() const { return m_type; }
 
+		build_version& version() { return m_version; }
+		const build_version& version() const { return m_version; }
+
 		std::vector<std::filesystem::path>& include_directories() { return m_include_dirs; }
 		const std::vector<std::filesystem::path>& include_directories() const { return m_include_dirs; }
 
@@ -90,59 +122,67 @@ namespace std::build {
 		const std::vector<std::string>& libraries() const { return m_libraries; }
 
 	public:
-		template<typename... Files>
+		template<typename... Files> requires internal::IsAllSame<std::string, Files...>
 		friend void add_source_files(project& info, const Files&... files);
 
-		template<typename... Flags>
+		template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
 		friend void add_flags(project& info, const Flags&... flags);
 
-		template<typename... IncludeDirs>
+		template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
 		friend void add_include_directories(project& info, const IncludeDirs&... dirs);
 
-		template<typename... LibDirs>
+		template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
 		friend void add_library_directories(project& info, const LibDirs&... dirs);
 
-		template<typename... Libs>
+		template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
 		friend void add_libraries(project& info, const Libs&... libs);
 
-		template<typename... Dependencies>
+		template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 		friend void add_dependencies(project& info, const Dependencies&... depends);
 
 		friend void set_directory(project& info, std::filesystem::path directory);
 
 		friend void set_type(project& info, build_type new_type);
 
+		friend void set_version(project& info, const build_version& ver);
+
 	private:
 		std::vector<const project*> m_dependencies;
 		std::string m_name;
 		std::filesystem::path m_dir { "." };
 		build_type m_type { build_type::executable };
+		build_version m_version;
 		std::vector<std::filesystem::path> m_include_dirs, m_files, m_library_dirs;
 		std::vector<std::string> m_flags, m_libraries;
 	};
 
-	template<typename... Files>
+	//typename = internal::VariadicIsSame<std::string, Files...>
+	template<typename... Files> requires internal::IsAllSame<std::string, Files...>
 	void add_source_files(project& info, const Files&... files) { (info.m_files.push_back(files), ...); }
 
-	template<typename... Flags>
+	template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
 	void add_flags(project& info, const Flags&... flags) { (info.m_flags.push_back(flags), ...); }
 
-	template<typename... IncludeDirs>
+	template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
 	void add_include_directories(project& info, const IncludeDirs&... dirs) { (info.m_include_dirs.push_back(dirs), ...); }
 
-	template<typename... LibDirs>
+	template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
 	void add_library_directories(project& info, const LibDirs&... dirs) { (info.m_library_dirs.push_back(dirs), ...); }
 
-	template<typename... Libs>
+	template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
 	void add_libraries(project& info, const Libs&... libs) { (info.m_libraries.push_back(libs), ...); }
 
-	template<typename... Dependencies>
+	template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
 
 	void set_directory(project& info, std::filesystem::path directory) { info.m_dir = directory; }
 
 	void set_type(project& info, type new_type) { info.m_type = new_type; }
 
+	void set_version(project& info, const version& ver) { info.m_version = ver; }
+
+	////////////// Library //////////////
+	
 	struct Library {
 	public:
 		using build_type = type;
@@ -162,6 +202,8 @@ namespace std::build {
 		build_type m_type;
 	};
 
+	////////////// Compilation //////////////
+	
 	inline std::vector<std::filesystem::path> compile(const project& info) {
 		auto build_dir = options().build_dir / info.name();
 
@@ -186,6 +228,8 @@ namespace std::build {
 		return obj_files;
 	}
 
+	////////////// Create Binaries //////////////
+	
 	inline Library create_static_library(const project& info) {
 		std::cout << "\nCreating static library: " << info.name() << '\n';
 		auto bin_dir = options().bin_dir;

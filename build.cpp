@@ -1,3 +1,4 @@
+#include <iostream>
 #include "stdbuild"
 
 #include "module/build.h"
@@ -15,6 +16,7 @@ int main() {
 	add_include_directories(proj, "include/");
 	add_source_files(proj, "src/main.cpp", "src/test.cpp");
 	add_dependencies(proj, module);
+	set_version(proj, { 0, 0, 1 });
 	create_executable(proj);
 }
 
