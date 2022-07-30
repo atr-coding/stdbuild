@@ -89,12 +89,6 @@ namespace std::build {
 		std::vector<std::string>& libraries() { return m_libraries; }
 		const std::vector<std::string>& libraries() const { return m_libraries; }
 
-		std::vector<std::string>& pre_build_commands() { return m_pre_build_cmds; }
-		const std::vector<std::string>& pre_build_commands() const { return m_pre_build_cmds; }
-
-		std::vector<std::string>& post_build_commands() { return m_post_build_cmds; }
-		const std::vector<std::string>& post_build_commands() const { return m_post_build_cmds; }
-
 	public:
 		template<typename... Files>
 		friend void add_source_files(project& info, const Files&... files);
@@ -114,12 +108,6 @@ namespace std::build {
 		template<typename... Dependencies>
 		friend void add_dependencies(project& info, const Dependencies&... depends);
 
-		template<typename... PreBuildCommands>
-		friend void add_pre_build_commands(project& info, const PreBuildCommands&... commands);
-
-		template<typename... PostBuildCommands>
-		friend void add_post_build_commands(project& info, const PostBuildCommands&... commands);
-
 		friend void set_directory(project& info, std::filesystem::path directory);
 
 		friend void set_type(project& info, build_type new_type);
@@ -130,7 +118,7 @@ namespace std::build {
 		std::filesystem::path m_dir { "." };
 		build_type m_type { build_type::executable };
 		std::vector<std::filesystem::path> m_include_dirs, m_files, m_library_dirs;
-		std::vector<std::string> m_flags, m_libraries, m_pre_build_cmds, m_post_build_cmds;
+		std::vector<std::string> m_flags, m_libraries;
 	};
 
 	template<typename... Files>
@@ -150,12 +138,6 @@ namespace std::build {
 
 	template<typename... Dependencies>
 	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
-
-	template<typename... PreBuildCommands>
-	void add_pre_build_commands(project& info, const PreBuildCommands&... commands) { (info.m_pre_build_cmds.push_back(commands), ...); }
-	
-	template<typename... PostBuildCommands>
-	void add_post_build_commands(project& info, const PostBuildCommands&... commands) { (info.m_post_build_cmds.push_back(commands), ...); }
 
 	void set_directory(project& info, std::filesystem::path directory) { info.m_dir = directory; }
 
@@ -244,7 +226,6 @@ namespace std::build {
 		for (auto& id : info.include_directories()) { id = info.directory() / id; }
 		for (auto& ld : info.library_directories()) { ld = info.directory() / ld; }
 
-
 		auto dependencies = info.dependencies();
 		if (dependencies.size() > 0) {
 			std::cout << "Building dependencies.\n";
@@ -256,11 +237,6 @@ namespace std::build {
 					info.include_directories().push_back(dependency->directory() / inc);
 				}
 			}
-		}
-
-		if (info.pre_build_commands().size() > 0) {
-			std::cout << "Running pre-build commands.\n";
-			for (const auto& cmd : info.pre_build_commands()) { command(cmd); }
 		}
 
 		if (info.files().size() > 0) {
@@ -277,11 +253,6 @@ namespace std::build {
 			for (const auto& ld : info.library_directories()) { output << "-L" << ld << ' '; }
 			for (const auto& l : info.libraries()) { output << "-l" << l << ' '; }
 			command(output.str());
-		}
-
-		if (info.post_build_commands().size() > 0) {
-			std::cout << "Running post-build commands.\n";
-			for (const auto& cmd : info.post_build_commands()) { command(cmd); }
 		}
 	}
 }

@@ -13,7 +13,7 @@ int main() {
 	set_directory(proj, "project");
 	add_flags(proj, "-std=c++20");
 	add_include_directories(proj, "include/");
-	add_source_files(proj, "src/main.cpp");
+	add_source_files(proj, "src/main.cpp", "src/test.cpp");
 	add_dependencies(proj, module);
 	create_executable(proj);
 }
