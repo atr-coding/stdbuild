@@ -79,6 +79,99 @@ namespace std::build {
 		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
 	};
 
+	////////////// List //////////////
+	
+	class List {
+	public:
+		List() = default;
+
+		List(const List& other) : m_flags(other.m_flags) {}
+
+		List(List&& other) : m_flags(std::move(other.m_flags)) {}
+
+		template<typename... FlagType>
+		using StringOrListTest = std::enable_if_t<std::conjunction_v<std::disjunction<std::is_convertible<FlagType, std::string>, std::is_convertible<FlagType, List>>...>>;
+
+		template<typename... FlagType, typename = StringOrListTest<FlagType...>>
+		List(const std::string& flag, const FlagType&... flags) {
+			add_flags(flag);
+			(add_flags(flags), ...);
+		}
+
+		template<typename... FlagType, typename = StringOrListTest<FlagType...>>
+		List(const List& flag, const FlagType&... flags) {
+			add_flags(flag);
+			(add_flags(flags), ...);
+		}
+
+		void operator=(const List& other) {
+			if (this != &other) {
+				m_flags = other.m_flags;
+			}
+		}
+
+		void operator=(List&& other) {
+			if (this != &other) {
+				m_flags = std::move(other.m_flags);
+			}
+		}
+
+		void operator+=(const List& other) {
+			m_flags.insert(m_flags.end(), other.m_flags.begin(), other.m_flags.end());
+		}
+
+		void operator+=(const std::string& flag) {
+			m_flags.push_back(flag);
+		}
+
+		List operator+(const List& other) {
+			List new_list(*this);
+			new_list += other;
+			return new_list;
+		}
+
+		List operator+(const std::string& flag) {
+			List new_list(*this);
+			new_list += flag;
+			return new_list;
+		}
+
+		std::vector<std::string>& get() {
+			return m_flags;
+		}
+
+		const std::vector<std::string>& get() const {
+			return m_flags;
+		}
+	private:
+		void add_flags(const char* flag) {
+			m_flags.push_back(flag);
+		}
+
+		void add_flags(const std::string& flag) {
+			m_flags.push_back(flag);
+		}
+
+		void add_flags(const List& flag_list) {
+			m_flags.insert(m_flags.end(), flag_list.m_flags.begin(), flag_list.m_flags.end());
+		}
+	private:
+		std::vector<std::string> m_flags;
+	};
+
+	List operator+(const std::string& flag, const List& other) {
+		List new_list(flag);
+		new_list += other;
+		return new_list;
+	}
+
+	std::ostream& operator<<(std::ostream& os, const List& list) {
+		for (const auto& i : list.get()) {
+			os << i << ' ';
+		}
+		return os;
+	}
+
 	////////////// Project //////////////
 
 	class project {
@@ -175,7 +268,7 @@ namespace std::build {
 
 	template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
 	void add_library_directories(project& info, const LibDirs&... dirs) { (info.m_library_dirs.push_back(dirs), ...); }
-	void add_library_directories(project& info, const std::vector<std::string>& dirs) {info.m_library_dirs.insert(info.m_library_dirs.end(), dirs.begin(), dirs.end());}
+	void add_library_directories(project& info, const std::vector<std::string>& dirs) { info.m_library_dirs.insert(info.m_library_dirs.end(), dirs.begin(), dirs.end()); }
 
 	template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
 	void add_libraries(project& info, const Libs&... libs) { (info.m_libraries.push_back(libs), ...); }

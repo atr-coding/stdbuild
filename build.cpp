@@ -1,25 +1,45 @@
 #include <iostream>
+#include <vector>
+#include <concepts>
 #include "stdbuild"
 
 #include "module/build.h"
 
 using namespace std::build;
 
-int main() {
-	enable_debugging();
+int main(int argc, char** argv) {
 
-	auto module = module::build();
+	List sources = {
+		"src/main.cpp",
+		"src/test.cpp"
+	};
 
-	std::vector<std::string> files = { "src/main.cpp", "src/test.cpp" };
+	// enable_debugging();
 
-	project proj("project", type::executable);
-	set_directory(proj, "project");
-	add_flags(proj, "-std=c++20", "-DTEST_DEF");
-	add_include_directories(proj, "include/");
-	add_source_files(proj, files);
-	add_dependencies(proj, module);
-	set_version(proj, { 0, 0, 1 });
-	create_executable(proj);
+	// auto module = module::build();
+
+	// std::vector<std::string> files = { "src/main.cpp", "src/test.cpp" };
+
+	// project proj("project", type::executable);
+	// set_directory(proj, "project");
+	// add_flags(proj, "-std=c++20", "-DTEST_DEF");
+	// add_include_directories(proj, "include/");
+	// add_source_files(proj, files);
+	// add_dependencies(proj, module);
+	// set_version(proj, { 0, 0, 1 });
+	// create_executable(proj);
+
+
+	/*
+
+	IncludeDirectoryList incs = {
+		{"include/", true}
+	};
+
+	proj.add(IncludeDirectory("include/", true), Flags("-std=c++20", "-DTEST_DEF"), Files(files), Package(module), Library("OpenGL32.lib", true));
+	proj.set_version({0, 0, 1});
+
+	*/
 }
 
 
