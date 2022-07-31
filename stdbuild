@@ -6,14 +6,12 @@
 #include <sstream>
 #include <filesystem>
 #include <type_traits>
+#include <concepts>
 #include <cassert>
 
 namespace std::build {
 
-	void command(const std::string& cmd) {
-		std::cout << "Running command: " << cmd << '\n';
-		std::system(cmd.c_str());
-	}
+	enum class type : unsigned int { static_library, shared_library, executable };
 
 	////////////// Options //////////////
 
@@ -22,10 +20,16 @@ namespace std::build {
 			std::filesystem::path build_dir{ "build/" };
 			std::filesystem::path bin_dir{ "bin/" };
 			bool debug{ false };
+			bool verbose{ false };
 		};
 
 		template<typename T1, typename... T2>
 		concept IsAllSame = std::conjunction_v<std::is_convertible<T2, T1>...>;
+
+		class List;
+		template<typename T1, typename... FlagType>
+		// using ListTest = std::enable_if_t<std::conjunction_v<std::disjunction<std::is_convertible<FlagType, T1>, std::is_convertible<FlagType, List>>...>>;
+		concept ListTest = std::conjunction_v<std::disjunction<std::is_convertible<FlagType, T1>, std::is_convertible<FlagType, List>>...>;
 	}
 
 	inline internal::Options& options() {
@@ -57,7 +61,22 @@ namespace std::build {
 		return options().debug;
 	}
 
-	enum class type : unsigned int { static_library, shared_library, executable };
+	inline void enable_verbose() {
+		options().verbose = true;
+	}
+
+	inline void disable_verbose() {
+		options().verbose = false;
+	}
+
+	////////////// Command //////////////
+
+	void command(const std::string& cmd) {
+		if (options().verbose) {
+			std::cout << "Running command: " << cmd << '\n';
+		}
+		std::system(cmd.c_str());
+	}
 
 	////////////// Version //////////////
 
@@ -80,68 +99,94 @@ namespace std::build {
 	};
 
 	////////////// List //////////////
-	
-	class List {
+
+	template<typename Type>
+	class ListBase {
 	public:
-		List() = default;
+		ListBase() = default;
 
-		List(const List& other) : m_flags(other.m_flags) {}
+		ListBase(const ListBase& other) : m_flags(other.m_flags) {}
 
-		List(List&& other) : m_flags(std::move(other.m_flags)) {}
+		ListBase(ListBase&& other) : m_flags(std::move(other.m_flags)) {}
 
-		template<typename... FlagType>
-		using StringOrListTest = std::enable_if_t<std::conjunction_v<std::disjunction<std::is_convertible<FlagType, std::string>, std::is_convertible<FlagType, List>>...>>;
-
-		template<typename... FlagType, typename = StringOrListTest<FlagType...>>
-		List(const std::string& flag, const FlagType&... flags) {
+		template<typename... FlagType> requires internal::ListTest<Type, FlagType...>//, typename = internal::ListTest<Type, FlagType...>>
+		ListBase(const Type& flag, const FlagType&... flags) {
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
 
-		template<typename... FlagType, typename = StringOrListTest<FlagType...>>
-		List(const List& flag, const FlagType&... flags) {
+		template<typename... FlagType> requires internal::ListTest<Type, FlagType...>//, typename = internal::ListTest<Type, FlagType...>>
+		ListBase(const ListBase& flag, const FlagType&... flags) {
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
 
-		void operator=(const List& other) {
+		void operator=(const ListBase<Type>& other) {
 			if (this != &other) {
 				m_flags = other.m_flags;
 			}
 		}
 
-		void operator=(List&& other) {
+		void operator=(ListBase<Type>&& other) {
 			if (this != &other) {
 				m_flags = std::move(other.m_flags);
 			}
 		}
 
-		void operator+=(const List& other) {
+		void operator+=(const ListBase<Type>& other) {
 			m_flags.insert(m_flags.end(), other.m_flags.begin(), other.m_flags.end());
 		}
 
-		void operator+=(const std::string& flag) {
+		void operator+=(const Type& flag) {
 			m_flags.push_back(flag);
 		}
 
-		List operator+(const List& other) {
-			List new_list(*this);
+		void operator+=(Type&& flag) {
+			m_flags.push_back(std::move(flag));
+		}
+
+		ListBase operator+(const ListBase<Type>& other) {
+			ListBase new_list(*this);
 			new_list += other;
 			return new_list;
 		}
 
-		List operator+(const std::string& flag) {
-			List new_list(*this);
+		ListBase operator+(const Type& flag) {
+			ListBase new_list(*this);
 			new_list += flag;
 			return new_list;
 		}
 
-		std::vector<std::string>& get() {
+		std::vector<Type>& get() {
 			return m_flags;
 		}
 
-		const std::vector<std::string>& get() const {
+		const std::vector<Type>& get() const {
 			return m_flags;
+		}
+
+		auto begin() {
+			return m_flags.begin();
+		}
+
+		auto begin() const {
+			return m_flags.begin();
+		}
+
+		auto end() {
+			return m_flags.end();
+		}
+
+		auto end() const {
+			return m_flags.end();
+		}
+
+		std::size_t size() {
+			return m_flags.size();
+		}
+
+		const std::size_t size() const {
+			return m_flags.size();
 		}
 	private:
 		void add_flags(const char* flag) {
@@ -152,20 +197,27 @@ namespace std::build {
 			m_flags.push_back(flag);
 		}
 
-		void add_flags(const List& flag_list) {
-			m_flags.insert(m_flags.end(), flag_list.m_flags.begin(), flag_list.m_flags.end());
+		void add_flags(const ListBase<Type>& other) {
+			m_flags.insert(m_flags.end(), other.begin(), other.end());
 		}
 	private:
-		std::vector<std::string> m_flags;
+		std::vector<Type> m_flags;
 	};
 
-	List operator+(const std::string& flag, const List& other) {
+	using List = ListBase<std::string>;
+	using DirectoryList = ListBase<std::filesystem::path>;
+	class project;
+	using PackageList = ListBase<project>;
+
+	template<typename T>
+	ListBase<T> operator+(const std::string& flag, const ListBase<T>& other) {
 		List new_list(flag);
 		new_list += other;
 		return new_list;
 	}
 
-	std::ostream& operator<<(std::ostream& os, const List& list) {
+	template<typename T>
+	std::ostream& operator<<(std::ostream& os, const ListBase<T>& list) {
 		for (const auto& i : list.get()) {
 			os << i << ' ';
 		}
@@ -199,41 +251,41 @@ namespace std::build {
 		build_version& version() { return m_version; }
 		const build_version& version() const { return m_version; }
 
-		std::vector<std::filesystem::path>& include_directories() { return m_include_dirs; }
-		const std::vector<std::filesystem::path>& include_directories() const { return m_include_dirs; }
+		List& include_directories() { return m_include_dirs; }
+		const List& include_directories() const { return m_include_dirs; }
 
-		std::vector<std::filesystem::path>& files() { return m_files; }
-		const std::vector<std::filesystem::path>& files() const { return m_files; }
+		List& files() { return m_files; }
+		const List& files() const { return m_files; }
 
-		std::vector<std::filesystem::path>& library_directories() { return m_library_dirs; }
-		const std::vector<std::filesystem::path>& library_directories() const { return m_library_dirs; }
+		List& library_directories() { return m_library_dirs; }
+		const List& library_directories() const { return m_library_dirs; }
 
-		std::vector<std::string>& flags() { return m_flags; }
-		const std::vector<std::string>& flags() const { return m_flags; }
+		List& flags() { return m_flags; }
+		const List& flags() const { return m_flags; }
 
-		std::vector<std::string>& libraries() { return m_libraries; }
-		const std::vector<std::string>& libraries() const { return m_libraries; }
+		List& libraries() { return m_libraries; }
+		const List& libraries() const { return m_libraries; }
 
 	public:
-		template<typename... Files> requires internal::IsAllSame<std::string, Files...>
+		template<typename... Files> requires internal::ListTest<std::string, Files...>
 		friend void add_source_files(project& info, const Files&... files);
-		friend void add_source_files(project& info, const std::vector<std::string>& files);
+		friend void add_source_files(project& info, const List& files);
 
-		template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
+		template<typename... Flags> requires internal::ListTest<std::string, Flags...>
 		friend void add_flags(project& info, const Flags&... flags);
-		friend void add_flags(project& info, const std::vector<std::string>& flags);
+		friend void add_flags(project& info, const List& flags);
 
-		template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
+		template<typename... IncludeDirs> requires internal::ListTest<std::string, IncludeDirs...>
 		friend void add_include_directories(project& info, const IncludeDirs&... dirs);
-		friend void add_include_directories(project& info, const std::vector<std::string>& dirs);
+		friend void add_include_directories(project& info, const List& dirs);
 
-		template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
+		template<typename... LibDirs> requires internal::ListTest<std::string, LibDirs...>
 		friend void add_library_directories(project& info, const LibDirs&... dirs);
-		friend void add_library_directories(project& info, const std::vector<std::string>& dirs);
+		friend void add_library_directories(project& info, const List& dirs);
 
-		template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
+		template<typename... Libs> requires internal::ListTest<std::string, Libs...>
 		friend void add_libraries(project& info, const Libs&... libs);
-		friend void add_libraries(project& info, const std::vector<std::string>& libs);
+		friend void add_libraries(project& info, const List& libs);
 
 		template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 		friend void add_dependencies(project& info, const Dependencies&... depends);
@@ -250,29 +302,30 @@ namespace std::build {
 		std::filesystem::path m_dir{ "." };
 		build_type m_type{ build_type::executable };
 		build_version m_version;
-		std::vector<std::filesystem::path> m_include_dirs, m_files, m_library_dirs;
-		std::vector<std::string> m_flags, m_libraries;
+		// List m_include_dirs, m_files, m_library_dirs;
+		// List m_flags, m_libraries;
+		List m_include_dirs, m_files, m_library_dirs, m_flags, m_libraries;
 	};
 
-	template<typename... Files> requires internal::IsAllSame<std::string, Files...>
-	void add_source_files(project& info, const Files&... files) { (info.m_files.push_back(files), ...); }
-	void add_source_files(project& info, const std::vector<std::string>& files) { info.m_files.insert(info.m_files.end(), files.begin(), files.end()); }
+	template<typename... Files> requires internal::ListTest<std::string, Files...>
+	void add_source_files(project& info, const Files&... files) { info.m_files += List(files...); }
+	void add_source_files(project& info, const List& files) { info.m_files += files; }
 
-	template<typename... Flags> requires internal::IsAllSame<std::string, Flags...>
-	void add_flags(project& info, const Flags&... flags) { (info.m_flags.push_back(flags), ...); }
-	void add_flags(project& info, const std::vector<std::string>& flags) { info.m_flags.insert(info.m_flags.end(), flags.begin(), flags.end()); }
+	template<typename... Flags> requires internal::ListTest<std::string, Flags...>
+	void add_flags(project& info, const Flags&... flags) { ((info.m_flags += flags), ...); }
+	void add_flags(project& info, const List& flags) { info.m_flags += flags; }
 
-	template<typename... IncludeDirs> requires internal::IsAllSame<std::string, IncludeDirs...>
-	void add_include_directories(project& info, const IncludeDirs&... dirs) { (info.m_include_dirs.push_back(dirs), ...); }
-	void add_include_directories(project& info, const std::vector<std::string>& dirs) { info.m_include_dirs.insert(info.m_include_dirs.end(), dirs.begin(), dirs.end()); }
+	template<typename... IncludeDirs> requires internal::ListTest<std::string, IncludeDirs...>
+	void add_include_directories(project& info, const IncludeDirs&... dirs) { ((info.m_include_dirs += dirs), ...); }
+	void add_include_directories(project& info, const List& dirs) { info.m_include_dirs += dirs; }
 
-	template<typename... LibDirs> requires internal::IsAllSame<std::string, LibDirs...>
-	void add_library_directories(project& info, const LibDirs&... dirs) { (info.m_library_dirs.push_back(dirs), ...); }
-	void add_library_directories(project& info, const std::vector<std::string>& dirs) { info.m_library_dirs.insert(info.m_library_dirs.end(), dirs.begin(), dirs.end()); }
+	template<typename... LibDirs> requires internal::ListTest<std::string, LibDirs...>
+	void add_library_directories(project& info, const LibDirs&... dirs) { ((info.m_library_dirs += dirs), ...); }
+	void add_library_directories(project& info, const List& dirs) { info.m_library_dirs += dirs; }
 
-	template<typename... Libs> requires internal::IsAllSame<std::string, Libs...>
-	void add_libraries(project& info, const Libs&... libs) { (info.m_libraries.push_back(libs), ...); }
-	void add_libraries(project& info, const std::vector<std::string>& libs) { info.m_libraries.insert(info.m_libraries.end(), libs.begin(), libs.end()); }
+	template<typename... Libs> requires internal::ListTest<std::string, Libs...>
+	void add_libraries(project& info, const Libs&... libs) { ((info.m_libraries += libs), ...); }
+	void add_libraries(project& info, const List& libs) { info.m_libraries += libs; }
 
 	template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
 	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
@@ -306,24 +359,25 @@ namespace std::build {
 
 	////////////// Compilation //////////////
 
-	inline std::vector<std::filesystem::path> compile(const project& info) {
+	inline List compile(const project& info) {
 		auto build_dir = options().build_dir / info.name();
 
 		if (!std::filesystem::exists(build_dir)) {
 			std::filesystem::create_directory(build_dir);
 		}
 
-		std::vector<std::filesystem::path> obj_files;
+		List obj_files;
 
 		for (const auto& f : info.files()) {
 			std::stringstream output;
 			output << "g++ -c ";
+			std::filesystem::path fp(f);
 			for (const auto& f : info.flags()) { output << f << ' '; }
 			for (const auto& i : info.include_directories()) { output << "-I" << i << ' '; }
-			output << info.directory() / f;
-			auto obj_path = (build_dir / f.stem()).replace_extension(".o");
+			output << info.directory() / fp;
+			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
 			output << " -o " << obj_path;
-			obj_files.push_back(std::move(obj_path));
+			obj_files += std::move(obj_path.string());
 			command(output.str());
 		}
 
@@ -333,34 +387,38 @@ namespace std::build {
 	////////////// Create Binaries //////////////
 
 	inline Library create_static_library(const project& info) {
-		std::cout << "\nCreating static library: " << info.name() << '\n';
+		bool verbose = options().verbose;
+		if (verbose) { std::cout << "\nCreating static library: " << info.name() << '\n'; }
 		auto bin_dir = options().bin_dir;
 
 		if (!std::filesystem::exists(bin_dir)) {
 			std::filesystem::create_directory(bin_dir);
 		}
 
-		std::cout << "\tCompiling...\n\t";
+		if (verbose) { std::cout << "\tCompiling...\n\t"; }
 		auto objs = compile(info);
 
 		auto file = std::filesystem::path("lib" + info.name()).replace_extension(".a");
-		std::cout << "\tOutput directory: " << bin_dir << '\n';
-		std::cout << "\tOutput file name: " << file << '\n';
-
-		std::cout << "\tLinking...\n";
+		
+		if (verbose) {
+			std::cout << "\tOutput directory: " << bin_dir << '\n';
+			std::cout << "\tOutput file name: " << file << '\n';
+			std::cout << "\tLinking...\n";
+		}
+		
 		std::stringstream output;
 		output << "ar rcs " << bin_dir / file << ' ';
 		for (const auto& obj : objs) {
 			output << obj << ' ';
 		}
-		std::cout << '\t';
+		if (verbose) { std::cout << '\t'; }
 		command(output.str());
 
 		return Library(bin_dir, std::filesystem::path(info.name()), std::build::type::static_library);
 	}
 
 	inline void create_executable(project& info) {
-
+		bool verbose = options().verbose;
 		std::cout << "Creating executable: " << info.name() << "\n";
 		auto bin_dir = options().bin_dir;
 
@@ -369,27 +427,32 @@ namespace std::build {
 		}
 
 		// Transform include & library directories by prepending the project's working directory
-		for (auto& id : info.include_directories()) { id = info.directory() / id; }
-		for (auto& ld : info.library_directories()) { ld = info.directory() / ld; }
+		for (auto& id : info.include_directories()) { id = (info.directory() / id).string(); }
+		for (auto& ld : info.library_directories()) { ld = (info.directory() / ld).string(); }
 
 		auto dependencies = info.dependencies();
 		if (dependencies.size() > 0) {
-			std::cout << "Building dependencies.\n";
+			std::cout << "Building dependencies...";
 			for (auto& dependency : dependencies) {
 				auto lib = create_static_library(*dependency);
-				info.library_directories().push_back(lib.location());
-				info.libraries().push_back(lib.file_name().string());
+				info.library_directories() += lib.location().string();
+				info.libraries() += lib.file_name().string();
 				for (const auto& inc : dependency->include_directories()) {
-					info.include_directories().push_back(dependency->directory() / inc);
+					info.include_directories() += (dependency->directory() / inc).string();
 				}
 			}
+
+			if (!verbose) { std::cout << "done\n"; }
 		}
 
 		if (info.files().size() > 0) {
-			std::cout << "Compiling...\n";
+			std::cout << "Compiling...";
+			if (verbose) { std::cout << '\n'; }
 			auto objs = compile(info);
+			if (!verbose) { std::cout << "done\n"; }
 
-			std::cout << "Linking...\n";
+			std::cout << "Linking...";
+			if (verbose) { std::cout << '\n'; }
 			std::stringstream output;
 			output << "g++ ";
 			for (const auto& obj : objs) {
@@ -399,6 +462,7 @@ namespace std::build {
 			for (const auto& ld : info.library_directories()) { output << "-L" << ld << ' '; }
 			for (const auto& l : info.libraries()) { output << "-l" << l << ' '; }
 			command(output.str());
+			if (!verbose) { std::cout << "done\n"; }
 		}
 	}
 }
