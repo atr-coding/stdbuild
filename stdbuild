@@ -28,7 +28,6 @@ namespace std::build {
 
 		class List;
 		template<typename T1, typename... FlagType>
-		// using ListTest = std::enable_if_t<std::conjunction_v<std::disjunction<std::is_convertible<FlagType, T1>, std::is_convertible<FlagType, List>>...>>;
 		concept ListTest = std::conjunction_v<std::disjunction<std::is_convertible<FlagType, T1>, std::is_convertible<FlagType, List>>...>;
 	}
 
