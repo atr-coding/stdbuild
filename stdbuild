@@ -7,10 +7,8 @@
 #include <filesystem>
 #include <type_traits>
 #include <concepts>
-#include <cassert>
 
 #if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
-// #define _CONSTEXPR_20 constexpr
 #define _CONSTEXPR_20 constexpr
 #else
 #define _CONSTEXPR_20
@@ -121,7 +119,6 @@ namespace std::build {
 
 		template<typename... FlagType> requires _ListTest<Type, FlagType...>
 		_CONSTEXPR_20 ListBase(const Type& flag, const FlagType&... flags) {
-			std::cout << "Type constructor\n";
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
@@ -231,4 +228,110 @@ namespace std::build {
 		build_type m_type;
 	};
 
+	////////////// Compilation //////////////
+
+	inline List compile(const ProjectBase& project) {
+		auto build_dir = options().build_dir / project.name;
+
+		if (!std::filesystem::exists(build_dir)) {
+			std::filesystem::create_directory(build_dir);
+		}
+
+		List obj_files;
+
+		for (const auto& f : project.sources) {
+			std::stringstream output;
+			output << "g++ -c ";
+			std::filesystem::path fp(f);
+			for (const auto& f : project.flags) { output << f << ' '; }
+			for (const auto& i : project.include_dirs) { output << "-I" << (project.dir / i) << ' '; }
+			output << project.dir / fp;
+			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
+			output << " -o " << obj_path;
+			obj_files += std::move(obj_path.string());
+			command(output.str());
+		}
+
+		return obj_files;
+	}
+
+	////////////// Create Binaries //////////////
+
+	inline Library create_static_library(const ProjectBase& project) {
+		bool verbose = options().verbose;
+		if (verbose) { std::cout << "\nCreating static library: " << project.name << '\n'; }
+		auto bin_dir = options().bin_dir;
+
+		if (!std::filesystem::exists(bin_dir)) {
+			std::filesystem::create_directory(bin_dir);
+		}
+
+		if (verbose) { std::cout << "\tCompiling...\n\t"; }
+		auto objs = compile(project);
+
+		auto file = std::filesystem::path("lib" + project.name).replace_extension(".a");
+
+		if (verbose) {
+			std::cout << "\tOutput directory: " << bin_dir << '\n';
+			std::cout << "\tOutput file name: " << file << '\n';
+			std::cout << "\tLinking...\n";
+		}
+
+		std::stringstream output;
+		output << "ar rcs " << bin_dir / file << ' ';
+		for (const auto& obj : objs) {
+			output << obj << ' ';
+		}
+		if (verbose) { std::cout << '\t'; }
+		command(output.str());
+
+		return Library(bin_dir, std::filesystem::path(project.name), std::build::type::static_library);
+	}
+
+	inline void create_executable(ProjectBase& project) {
+		bool verbose = options().verbose;
+		std::cout << "Creating executable: " << project.name << "\n";
+		auto bin_dir = options().bin_dir;
+
+		if (!std::filesystem::exists(bin_dir)) {
+			std::filesystem::create_directory(bin_dir);
+		}
+
+		// Transform include & library directories by prepending the project's working directory
+		for (auto& id : project.include_dirs) { id = (project.dir / id).string(); }
+		for (auto& ld : project.library_dirs) { ld = (project.dir / ld).string(); }
+
+		if (project.packages.size() > 0) {
+			std::cout << "Building dependencies...";
+			for (const auto& dependency : project.packages) {
+				auto lib = create_static_library(dependency);
+				project.library_dirs += lib.location().string();
+				project.libraries += lib.file_name().string();
+				for (const auto& inc : dependency.include_dirs) {
+					project.include_dirs += (dependency.dir / inc).string();
+				}
+			}
+			if (!verbose) { std::cout << "done\n"; }
+		}
+
+		if (project.sources.size() > 0) {
+			std::cout << "Compiling...";
+			if (verbose) { std::cout << '\n'; }
+			auto objs = compile(project);
+			if (!verbose) { std::cout << "done\n"; }
+
+			std::cout << "Linking...";
+			if (verbose) { std::cout << '\n'; }
+			std::stringstream output;
+			output << "g++ ";
+			for (const auto& obj : objs) {
+				output << obj << " ";
+			}
+			output << " -o " << (bin_dir / project.name) << ' ';
+			for (const auto& ld : project.library_dirs) { output << "-L" << ld << ' '; }
+			for (const auto& l : project.libraries) { output << "-l" << l << ' '; }
+			command(output.str());
+			if (!verbose) { std::cout << "done\n"; }
+		}
+	}
 }
