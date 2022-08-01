@@ -9,30 +9,45 @@
 #include <concepts>
 #include <cassert>
 
+#if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
+// #define _CONSTEXPR_20 constexpr
+#define _CONSTEXPR_20 constexpr
+#else
+#define _CONSTEXPR_20
+#endif
+
+#if (__cplusplus >= 201703L)
+#define _CONSTEXPR_17 constexpr
+#else
+#define _CONSTEXPR_17
+#endif
+
 namespace std::build {
 
 	enum class type : unsigned int { static_library, shared_library, executable };
 
+	using build_path = std::filesystem::path;
+
 	////////////// Options //////////////
 
-	namespace internal {
-		struct Options {
-			std::filesystem::path build_dir{ "build/" };
-			std::filesystem::path bin_dir{ "bin/" };
-			bool debug{ false };
-			bool verbose{ false };
-		};
+	struct _Options {
+		std::filesystem::path build_dir{ "build/" };
+		std::filesystem::path bin_dir{ "bin/" };
+		bool debug{ false };
+		bool verbose{ false };
+	};
 
-		template<typename T1, typename... T2>
-		concept IsAllSame = std::conjunction_v<std::is_convertible<T2, T1>...>;
+	template<typename Type>
+	class ListBase;
 
-		class List;
-		template<typename T1, typename... FlagType>
-		concept ListTest = std::conjunction_v<std::disjunction<std::is_convertible<FlagType, T1>, std::is_convertible<FlagType, List>>...>;
-	}
+	template<typename From, typename... To>
+	concept _Is_Convertable_Multi = (std::convertible_to<From, To> || ...);
 
-	inline internal::Options& options() {
-		static internal::Options opt;
+	template<typename T1, typename... FlagType>
+	concept _ListTest = (_Is_Convertable_Multi<FlagType, T1, ListBase<T1>> && ...);
+
+	inline _Options& options() {
+		static _Options opt;
 		return opt;
 	}
 
@@ -71,28 +86,26 @@ namespace std::build {
 	////////////// Command //////////////
 
 	void command(const std::string& cmd) {
-		if (options().verbose) {
-			std::cout << "Running command: " << cmd << '\n';
-		}
+		if (options().verbose) { std::cout << "Running command: " << cmd << '\n'; }
 		std::system(cmd.c_str());
 	}
 
 	////////////// Version //////////////
 
-	struct version {
-		constexpr version() = default;
-		constexpr version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
-		uint32_t major() { return m_major; }
-		const uint32_t major() const { return m_major; }
-		uint32_t minor() { return m_minor; }
-		const uint32_t minor() const { return m_minor; }
-		uint32_t patch() { return m_patch; }
-		const uint32_t patch() const { return m_patch; }
-		constexpr bool operator>(const version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
-		constexpr bool operator<(const version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
-		constexpr bool operator==(const version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
-		constexpr bool operator>=(const version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
-		constexpr bool operator<=(const version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
+	struct Version {
+		_CONSTEXPR_17 Version() = default;
+		_CONSTEXPR_17 Version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
+		_CONSTEXPR_17 uint32_t major() { return m_major; }
+		_CONSTEXPR_17 const uint32_t major() const { return m_major; }
+		_CONSTEXPR_17 uint32_t minor() { return m_minor; }
+		_CONSTEXPR_17 const uint32_t minor() const { return m_minor; }
+		_CONSTEXPR_17 uint32_t patch() { return m_patch; }
+		_CONSTEXPR_17 const uint32_t patch() const { return m_patch; }
+		_CONSTEXPR_17 bool operator>(const Version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
+		_CONSTEXPR_17 bool operator<(const Version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
+		_CONSTEXPR_17 bool operator==(const Version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
+		_CONSTEXPR_17 bool operator>=(const Version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
+		_CONSTEXPR_17 bool operator<=(const Version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
 	private:
 		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
 	};
@@ -102,114 +115,75 @@ namespace std::build {
 	template<typename Type>
 	class ListBase {
 	public:
-		ListBase() = default;
+		_CONSTEXPR_20 ListBase() = default;
+		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_flags(other.m_flags) {}
+		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_flags(std::move(other.m_flags)) {}
 
-		ListBase(const ListBase& other) : m_flags(other.m_flags) {}
-
-		ListBase(ListBase&& other) : m_flags(std::move(other.m_flags)) {}
-
-		template<typename... FlagType> requires internal::ListTest<Type, FlagType...>//, typename = internal::ListTest<Type, FlagType...>>
-		ListBase(const Type& flag, const FlagType&... flags) {
+		template<typename... FlagType> requires _ListTest<Type, FlagType...>
+		_CONSTEXPR_20 ListBase(const Type& flag, const FlagType&... flags) {
+			std::cout << "Type constructor\n";
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
 
-		template<typename... FlagType> requires internal::ListTest<Type, FlagType...>//, typename = internal::ListTest<Type, FlagType...>>
-		ListBase(const ListBase& flag, const FlagType&... flags) {
+		template<typename... FlagType> requires _ListTest<Type, FlagType...>
+		_CONSTEXPR_20 ListBase(const ListBase<Type>& flag, const FlagType&... flags) {
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
 
-		void operator=(const ListBase<Type>& other) {
+		/// ListBase Operators ///
+
+		_CONSTEXPR_20 void operator=(const ListBase<Type>& other) {
 			if (this != &other) {
 				m_flags = other.m_flags;
 			}
 		}
 
-		void operator=(ListBase<Type>&& other) {
+		_CONSTEXPR_20 void operator=(ListBase<Type>&& other) {
 			if (this != &other) {
 				m_flags = std::move(other.m_flags);
 			}
 		}
 
-		void operator+=(const ListBase<Type>& other) {
-			m_flags.insert(m_flags.end(), other.m_flags.begin(), other.m_flags.end());
-		}
-
-		void operator+=(const Type& flag) {
-			m_flags.push_back(flag);
-		}
-
-		void operator+=(Type&& flag) {
-			m_flags.push_back(std::move(flag));
-		}
-
-		ListBase operator+(const ListBase<Type>& other) {
+		_CONSTEXPR_20 ListBase operator+(const ListBase<Type>& other) {
 			ListBase new_list(*this);
 			new_list += other;
 			return new_list;
 		}
 
-		ListBase operator+(const Type& flag) {
+		_CONSTEXPR_20 ListBase operator+(const Type& flag) {
 			ListBase new_list(*this);
 			new_list += flag;
 			return new_list;
 		}
 
-		std::vector<Type>& get() {
-			return m_flags;
-		}
+		_CONSTEXPR_20 void operator+=(const ListBase<Type>& other) { m_flags.insert(m_flags.end(), other.m_flags.begin(), other.m_flags.end()); }
+		_CONSTEXPR_20 void operator+=(const Type& flag) { m_flags.push_back(flag); }
+		_CONSTEXPR_20 void operator+=(Type&& flag) { m_flags.push_back(std::move(flag)); }
 
-		const std::vector<Type>& get() const {
-			return m_flags;
-		}
+		/// End ListBase Operators ///
 
-		auto begin() {
-			return m_flags.begin();
-		}
-
-		auto begin() const {
-			return m_flags.begin();
-		}
-
-		auto end() {
-			return m_flags.end();
-		}
-
-		auto end() const {
-			return m_flags.end();
-		}
-
-		std::size_t size() {
-			return m_flags.size();
-		}
-
-		const std::size_t size() const {
-			return m_flags.size();
-		}
+		_CONSTEXPR_20 std::vector<Type>& get() { return m_flags; }
+		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_flags; }
+		_CONSTEXPR_20 auto begin() { return m_flags.begin(); }
+		_CONSTEXPR_20 const auto begin() const { return m_flags.begin(); }
+		_CONSTEXPR_20 auto end() { return m_flags.end(); }
+		_CONSTEXPR_20 const auto end() const { return m_flags.end(); }
+		_CONSTEXPR_20 std::size_t size() { return m_flags.size(); }
+		_CONSTEXPR_20 const std::size_t size() const { return m_flags.size(); }
 	private:
-		void add_flags(const char* flag) {
-			m_flags.push_back(flag);
-		}
-
-		void add_flags(const std::string& flag) {
-			m_flags.push_back(flag);
-		}
-
-		void add_flags(const ListBase<Type>& other) {
-			m_flags.insert(m_flags.end(), other.begin(), other.end());
-		}
+		_CONSTEXPR_20 void add_flags(const Type& flag) { m_flags.push_back(flag); }
+		_CONSTEXPR_20 void add_flags(const ListBase<Type>& other) { m_flags.insert(m_flags.end(), other.begin(), other.end()); }
 	private:
-		std::vector<Type> m_flags;
+		_CONSTEXPR_20 std::vector<Type> m_flags;
 	};
 
 	using List = ListBase<std::string>;
-	using DirectoryList = ListBase<std::filesystem::path>;
-	class project;
-	using PackageList = ListBase<project>;
+	using DirectoryList = ListBase<build_path>;
 
 	template<typename T>
-	ListBase<T> operator+(const std::string& flag, const ListBase<T>& other) {
+	_CONSTEXPR_20 ListBase<T> operator+(const std::string& flag, const ListBase<T>& other) {
 		List new_list(flag);
 		new_list += other;
 		return new_list;
@@ -223,117 +197,18 @@ namespace std::build {
 		return os;
 	}
 
-	////////////// Project //////////////
+	////////////// Library //////////////
+	
+	struct ProjectBase;
+	using Packages = ListBase<ProjectBase>;
 
-	class project {
-	public:
-		using build_type = type;
-		using build_version = version;
-
-	public:
-		project(const std::string& name, build_type type) : m_name(name), m_type(type) {}
-		project(const std::string& name) : m_name(name) {}
-
-	public:
-		std::vector<const project*>& dependencies() { return m_dependencies; }
-		const std::vector<const project*>& dependencies() const { return m_dependencies; }
-
-		std::string& name() { return m_name; }
-		const std::string& name() const { return m_name; }
-
-		std::filesystem::path directory() { return m_dir; }
-		const std::filesystem::path directory() const { return m_dir; }
-
-		build_type type() { return m_type; }
-		const build_type type() const { return m_type; }
-
-		build_version& version() { return m_version; }
-		const build_version& version() const { return m_version; }
-
-		List& include_directories() { return m_include_dirs; }
-		const List& include_directories() const { return m_include_dirs; }
-
-		List& files() { return m_files; }
-		const List& files() const { return m_files; }
-
-		List& library_directories() { return m_library_dirs; }
-		const List& library_directories() const { return m_library_dirs; }
-
-		List& flags() { return m_flags; }
-		const List& flags() const { return m_flags; }
-
-		List& libraries() { return m_libraries; }
-		const List& libraries() const { return m_libraries; }
-
-	public:
-		template<typename... Files> requires internal::ListTest<std::string, Files...>
-		friend void add_source_files(project& info, const Files&... files);
-		friend void add_source_files(project& info, const List& files);
-
-		template<typename... Flags> requires internal::ListTest<std::string, Flags...>
-		friend void add_flags(project& info, const Flags&... flags);
-		friend void add_flags(project& info, const List& flags);
-
-		template<typename... IncludeDirs> requires internal::ListTest<std::string, IncludeDirs...>
-		friend void add_include_directories(project& info, const IncludeDirs&... dirs);
-		friend void add_include_directories(project& info, const List& dirs);
-
-		template<typename... LibDirs> requires internal::ListTest<std::string, LibDirs...>
-		friend void add_library_directories(project& info, const LibDirs&... dirs);
-		friend void add_library_directories(project& info, const List& dirs);
-
-		template<typename... Libs> requires internal::ListTest<std::string, Libs...>
-		friend void add_libraries(project& info, const Libs&... libs);
-		friend void add_libraries(project& info, const List& libs);
-
-		template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
-		friend void add_dependencies(project& info, const Dependencies&... depends);
-
-		friend void set_directory(project& info, std::filesystem::path directory);
-
-		friend void set_type(project& info, build_type new_type);
-
-		friend void set_version(project& info, const build_version& ver);
-
-	private:
-		std::vector<const project*> m_dependencies;
-		std::string m_name;
-		std::filesystem::path m_dir{ "." };
-		build_type m_type{ build_type::executable };
-		build_version m_version;
-		// List m_include_dirs, m_files, m_library_dirs;
-		// List m_flags, m_libraries;
-		List m_include_dirs, m_files, m_library_dirs, m_flags, m_libraries;
+	struct ProjectBase {
+		List include_dirs, library_dirs, flags, sources, libraries;
+		Packages packages;
+		Version version{ 0, 0, 0 };
+		std::string name;
+		build_path dir{ "." };
 	};
-
-	template<typename... Files> requires internal::ListTest<std::string, Files...>
-	void add_source_files(project& info, const Files&... files) { info.m_files += List(files...); }
-	void add_source_files(project& info, const List& files) { info.m_files += files; }
-
-	template<typename... Flags> requires internal::ListTest<std::string, Flags...>
-	void add_flags(project& info, const Flags&... flags) { ((info.m_flags += flags), ...); }
-	void add_flags(project& info, const List& flags) { info.m_flags += flags; }
-
-	template<typename... IncludeDirs> requires internal::ListTest<std::string, IncludeDirs...>
-	void add_include_directories(project& info, const IncludeDirs&... dirs) { ((info.m_include_dirs += dirs), ...); }
-	void add_include_directories(project& info, const List& dirs) { info.m_include_dirs += dirs; }
-
-	template<typename... LibDirs> requires internal::ListTest<std::string, LibDirs...>
-	void add_library_directories(project& info, const LibDirs&... dirs) { ((info.m_library_dirs += dirs), ...); }
-	void add_library_directories(project& info, const List& dirs) { info.m_library_dirs += dirs; }
-
-	template<typename... Libs> requires internal::ListTest<std::string, Libs...>
-	void add_libraries(project& info, const Libs&... libs) { ((info.m_libraries += libs), ...); }
-	void add_libraries(project& info, const List& libs) { info.m_libraries += libs; }
-
-	template<typename... Dependencies> requires internal::IsAllSame<const project&, Dependencies...>
-	void add_dependencies(project& info, const Dependencies&... depends) { (info.m_dependencies.push_back(&depends), ...); }
-
-	void set_directory(project& info, std::filesystem::path directory) { info.m_dir = directory; }
-
-	void set_type(project& info, type new_type) { info.m_type = new_type; }
-
-	void set_version(project& info, const version& ver) { info.m_version = ver; }
 
 	////////////// Library //////////////
 
@@ -356,112 +231,4 @@ namespace std::build {
 		build_type m_type;
 	};
 
-	////////////// Compilation //////////////
-
-	inline List compile(const project& info) {
-		auto build_dir = options().build_dir / info.name();
-
-		if (!std::filesystem::exists(build_dir)) {
-			std::filesystem::create_directory(build_dir);
-		}
-
-		List obj_files;
-
-		for (const auto& f : info.files()) {
-			std::stringstream output;
-			output << "g++ -c ";
-			std::filesystem::path fp(f);
-			for (const auto& f : info.flags()) { output << f << ' '; }
-			for (const auto& i : info.include_directories()) { output << "-I" << i << ' '; }
-			output << info.directory() / fp;
-			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
-			output << " -o " << obj_path;
-			obj_files += std::move(obj_path.string());
-			command(output.str());
-		}
-
-		return obj_files;
-	}
-
-	////////////// Create Binaries //////////////
-
-	inline Library create_static_library(const project& info) {
-		bool verbose = options().verbose;
-		if (verbose) { std::cout << "\nCreating static library: " << info.name() << '\n'; }
-		auto bin_dir = options().bin_dir;
-
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
-		}
-
-		if (verbose) { std::cout << "\tCompiling...\n\t"; }
-		auto objs = compile(info);
-
-		auto file = std::filesystem::path("lib" + info.name()).replace_extension(".a");
-		
-		if (verbose) {
-			std::cout << "\tOutput directory: " << bin_dir << '\n';
-			std::cout << "\tOutput file name: " << file << '\n';
-			std::cout << "\tLinking...\n";
-		}
-		
-		std::stringstream output;
-		output << "ar rcs " << bin_dir / file << ' ';
-		for (const auto& obj : objs) {
-			output << obj << ' ';
-		}
-		if (verbose) { std::cout << '\t'; }
-		command(output.str());
-
-		return Library(bin_dir, std::filesystem::path(info.name()), std::build::type::static_library);
-	}
-
-	inline void create_executable(project& info) {
-		bool verbose = options().verbose;
-		std::cout << "Creating executable: " << info.name() << "\n";
-		auto bin_dir = options().bin_dir;
-
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
-		}
-
-		// Transform include & library directories by prepending the project's working directory
-		for (auto& id : info.include_directories()) { id = (info.directory() / id).string(); }
-		for (auto& ld : info.library_directories()) { ld = (info.directory() / ld).string(); }
-
-		auto dependencies = info.dependencies();
-		if (dependencies.size() > 0) {
-			std::cout << "Building dependencies...";
-			for (auto& dependency : dependencies) {
-				auto lib = create_static_library(*dependency);
-				info.library_directories() += lib.location().string();
-				info.libraries() += lib.file_name().string();
-				for (const auto& inc : dependency->include_directories()) {
-					info.include_directories() += (dependency->directory() / inc).string();
-				}
-			}
-
-			if (!verbose) { std::cout << "done\n"; }
-		}
-
-		if (info.files().size() > 0) {
-			std::cout << "Compiling...";
-			if (verbose) { std::cout << '\n'; }
-			auto objs = compile(info);
-			if (!verbose) { std::cout << "done\n"; }
-
-			std::cout << "Linking...";
-			if (verbose) { std::cout << '\n'; }
-			std::stringstream output;
-			output << "g++ ";
-			for (const auto& obj : objs) {
-				output << obj << " ";
-			}
-			output << " -o " << (bin_dir / info.name()) << ' ';
-			for (const auto& ld : info.library_directories()) { output << "-L" << ld << ' '; }
-			for (const auto& l : info.libraries()) { output << "-l" << l << ' '; }
-			command(output.str());
-			if (!verbose) { std::cout << "done\n"; }
-		}
-	}
 }
