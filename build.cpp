@@ -1,33 +1,22 @@
+#define _STD_BUILD_VERBOSE
 #include "stdbuild"
+#include "module/build.h"
+#include "module2/build.h"
 
-using namespace std::build;
-
-struct Module : ProjectBase {
-	Module(build_path _dir) {
-		name = "module";
-		dir = _dir;
-		version = { 0, 0, 1 };
-
-		include_dirs = { "include/" };
-		sources = { "src/test.cpp" };
-		flags = { "-std=c++20" };
-	}
-};
-
-struct Project : ProjectBase {
+struct Project : std::build::Package {
 	Project() {
 		name = "project";
 		dir = "project/";
-		flags = { "-std=c++20" };
+		flags = { "-std=c++20", "-DTEST_DEF" };
 		sources = { "src/main.cpp", "src/test.cpp" };
-		packages = { Module("module") };
+		packages = {
+			Module("module"),
+			Module2("module2")
+		};
 	}
 };
 
 int main() {
-	enable_debugging();
-	enable_verbose();
-
 	auto proj = Project();
-	create_executable(proj);
+	std::build::create_executable(proj);
 }

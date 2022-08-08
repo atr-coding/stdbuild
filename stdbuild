@@ -5,7 +5,6 @@
 #include <string>
 #include <sstream>
 #include <filesystem>
-#include <type_traits>
 #include <concepts>
 
 #if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
@@ -20,20 +19,20 @@
 #define _CONSTEXPR_17
 #endif
 
-namespace std::build {
+#define _STD_BUILD std::build
+#define _STD_BUILD_OUTPUT(str) std::cout << str;
 
-	enum class type : unsigned int { static_library, shared_library, executable };
+#ifdef _STD_BUILD_VERBOSE
+#define _STD_BUILD_VERBOSE_OUTPUT(str) std::cout << str
+#else
+#define _STD_BUILD_VERBOSE_OUTPUT(str)
+#endif
+
+namespace _STD_BUILD {
+
+	enum class build_type : unsigned int { static_library, shared_library, header_library };
 
 	using build_path = std::filesystem::path;
-
-	////////////// Options //////////////
-
-	struct _Options {
-		std::filesystem::path build_dir{ "build/" };
-		std::filesystem::path bin_dir{ "bin/" };
-		bool debug{ false };
-		bool verbose{ false };
-	};
 
 	template<typename Type>
 	class ListBase;
@@ -42,7 +41,14 @@ namespace std::build {
 	concept _Is_Convertable_Multi = (std::convertible_to<From, To> || ...);
 
 	template<typename T1, typename... FlagType>
-	concept _ListTest = (_Is_Convertable_Multi<FlagType, T1, ListBase<T1>> && ...);
+	concept _List_Test = (_Is_Convertable_Multi<FlagType, T1, ListBase<T1>> && ...);
+
+	////////////// Options //////////////
+
+	struct _Options {
+		std::filesystem::path build_dir{ "build/" };
+		std::filesystem::path bin_dir{ "bin/" };
+	};
 
 	inline _Options& options() {
 		static _Options opt;
@@ -65,26 +71,10 @@ namespace std::build {
 		options().bin_dir = path;
 	}
 
-	inline void enable_debugging() {
-		options().debug = true;
-	}
-
-	inline bool debug_enabled() {
-		return options().debug;
-	}
-
-	inline void enable_verbose() {
-		options().verbose = true;
-	}
-
-	inline void disable_verbose() {
-		options().verbose = false;
-	}
-
 	////////////// Command //////////////
 
 	void command(const std::string& cmd) {
-		if (options().verbose) { std::cout << "Running command: " << cmd << '\n'; }
+		_STD_BUILD_VERBOSE_OUTPUT("Running command: " << cmd);
 		std::system(cmd.c_str());
 	}
 
@@ -117,13 +107,13 @@ namespace std::build {
 		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_flags(other.m_flags) {}
 		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_flags(std::move(other.m_flags)) {}
 
-		template<typename... FlagType> requires _ListTest<Type, FlagType...>
+		template<typename... FlagType> requires _List_Test<Type, FlagType...>
 		_CONSTEXPR_20 ListBase(const Type& flag, const FlagType&... flags) {
 			add_flags(flag);
 			(add_flags(flags), ...);
 		}
 
-		template<typename... FlagType> requires _ListTest<Type, FlagType...>
+		template<typename... FlagType> requires _List_Test<Type, FlagType...>
 		_CONSTEXPR_20 ListBase(const ListBase<Type>& flag, const FlagType&... flags) {
 			add_flags(flag);
 			(add_flags(flags), ...);
@@ -131,26 +121,28 @@ namespace std::build {
 
 		/// ListBase Operators ///
 
-		_CONSTEXPR_20 void operator=(const ListBase<Type>& other) {
+		_CONSTEXPR_20 ListBase<Type>& operator=(const ListBase<Type>& other) {
 			if (this != &other) {
 				m_flags = other.m_flags;
 			}
+			return *this;
 		}
 
-		_CONSTEXPR_20 void operator=(ListBase<Type>&& other) {
+		_CONSTEXPR_20 ListBase<Type>& operator=(ListBase<Type>&& other) {
 			if (this != &other) {
 				m_flags = std::move(other.m_flags);
 			}
+			return *this;
 		}
 
-		_CONSTEXPR_20 ListBase operator+(const ListBase<Type>& other) {
-			ListBase new_list(*this);
+		_CONSTEXPR_20 ListBase<Type> operator+(const ListBase<Type>& other) {
+			ListBase<Type> new_list(*this);
 			new_list += other;
 			return new_list;
 		}
 
-		_CONSTEXPR_20 ListBase operator+(const Type& flag) {
-			ListBase new_list(*this);
+		_CONSTEXPR_20 ListBase<Type> operator+(const Type& flag) {
+			ListBase<Type> new_list(*this);
 			new_list += flag;
 			return new_list;
 		}
@@ -195,60 +187,74 @@ namespace std::build {
 	}
 
 	////////////// Library //////////////
-	
-	struct ProjectBase;
-	using Packages = ListBase<ProjectBase>;
 
-	struct ProjectBase {
+	struct Package;
+	using Packages = ListBase<Package>;
+
+	struct Package {
 		List include_dirs, library_dirs, flags, sources, libraries;
 		Packages packages;
 		Version version{ 0, 0, 0 };
 		std::string name;
 		build_path dir{ "." };
+		build_type type{ build_type::static_library };
 	};
 
 	////////////// Library //////////////
 
 	struct Library {
-	public:
-		using build_type = type;
-
-	public:
-		Library(std::filesystem::path location, std::filesystem::path file_name, build_type type) : m_location(location), m_file_name(file_name), m_type(type) {}
-
-		const std::filesystem::path location() const { return m_location; }
-
-		const std::filesystem::path file_name() const { return m_file_name; }
-
-		const build_type type() const { return m_type; }
-
-	private:
-		std::filesystem::path m_location;
-		std::filesystem::path m_file_name;
-		build_type m_type;
+		std::filesystem::path location;
+		std::filesystem::path name;
+		build_type type{ build_type::static_library };
+		Library(std::filesystem::path _location, std::filesystem::path _name, build_type _type) : location(_location), name(_name), type(_type) {}
 	};
 
 	////////////// Compilation //////////////
 
-	inline List compile(const ProjectBase& project) {
+	using _Dependency_Vec = std::vector<const Package*>;
+	using _Dependency_Vec_Ref = _Dependency_Vec&;
+
+	inline void _add_packages(_Dependency_Vec_Ref dep, const Package& project) {
+		for (const auto& package : project.packages) {
+			dep.push_back(&package);
+			_add_packages(dep, package);
+		}
+	};
+
+	inline _Dependency_Vec _build_dependency_vector(const Package& main_project) {
+		_Dependency_Vec dep;
+		_add_packages(dep, main_project);
+
+		// Iterate through the packages and find/remove duplicates
+		std::erase_if(dep, [&](const Package* pkg) {
+			for (const auto* p : dep) {
+				if (p != pkg && p->name == pkg->name) { return true; }
+			}
+			return false;
+			});
+
+		return std::move(dep);
+	}
+
+	inline List compile(const Package& project) {
+		_STD_BUILD_VERBOSE_OUTPUT("Compiling...");
 		auto build_dir = options().build_dir / project.name;
 
-		if (!std::filesystem::exists(build_dir)) {
-			std::filesystem::create_directory(build_dir);
-		}
+		// Create the desired build directory if it doesn't exist already.
+		if (!std::filesystem::exists(build_dir)) { std::filesystem::create_directory(build_dir); }
 
 		List obj_files;
 
 		for (const auto& f : project.sources) {
 			std::stringstream output;
-			output << "g++ -c ";
 			std::filesystem::path fp(f);
-			for (const auto& f : project.flags) { output << f << ' '; }
-			for (const auto& i : project.include_dirs) { output << "-I" << (project.dir / i) << ' '; }
-			output << project.dir / fp;
 			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
-			output << " -o " << obj_path;
+
+			output << "g++ -c " << project.flags;
+			for (const auto& i : project.include_dirs) { output << "-I" << i << ' '; }
+			output << project.dir / fp << " -o " << obj_path;
 			obj_files += std::move(obj_path.string());
+			_STD_BUILD_VERBOSE_OUTPUT('\n');
 			command(output.str());
 		}
 
@@ -257,81 +263,118 @@ namespace std::build {
 
 	////////////// Create Binaries //////////////
 
-	inline Library create_static_library(const ProjectBase& project) {
-		bool verbose = options().verbose;
-		if (verbose) { std::cout << "\nCreating static library: " << project.name << '\n'; }
+	inline Library create_static_library(Package& project) {
+		_STD_BUILD_OUTPUT("---------- Static Library: " << project.name << " ----------\n");
 		auto bin_dir = options().bin_dir;
 
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
-		}
+		// Create the desired bin directory if it doesn't exist already.
+		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
 
-		if (verbose) { std::cout << "\tCompiling...\n\t"; }
+		// Transform library include directories by adding the project directory to the beginning.
+		for (auto& id : project.include_dirs) { id = (project.dir / id).string(); }
+
 		auto objs = compile(project);
 
-		auto file = std::filesystem::path("lib" + project.name).replace_extension(".a");
-
-		if (verbose) {
-			std::cout << "\tOutput directory: " << bin_dir << '\n';
-			std::cout << "\tOutput file name: " << file << '\n';
-			std::cout << "\tLinking...\n";
+		if (objs.size() > 0) {
+			auto file = std::filesystem::path("lib" + project.name).replace_extension(".a");
+			_STD_BUILD_VERBOSE_OUTPUT("\nLinking...");
+			std::stringstream output;
+			output << "ar rcs " << bin_dir / file << ' ' << objs;
+			_STD_BUILD_VERBOSE_OUTPUT('\n');
+			command(output.str());
+			_STD_BUILD_OUTPUT("Output: " << (bin_dir / file).string() << '\n');
 		}
 
-		std::stringstream output;
-		output << "ar rcs " << bin_dir / file << ' ';
-		for (const auto& obj : objs) {
-			output << obj << ' ';
-		}
-		if (verbose) { std::cout << '\t'; }
-		command(output.str());
-
-		return Library(bin_dir, std::filesystem::path(project.name), std::build::type::static_library);
+		return Library(bin_dir, project.name, (objs.size() > 0 ? project.type : build_type::header_library));
 	}
 
-	inline void create_executable(ProjectBase& project) {
-		bool verbose = options().verbose;
-		std::cout << "Creating executable: " << project.name << "\n";
+	inline Library create_library(Package& package) {
+		_STD_BUILD_OUTPUT("---------- Library: " << package.name << " ----------\n");
 		auto bin_dir = options().bin_dir;
 
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
+		// Create the desired bin directory if it doesn't exist already.
+		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
+
+		// Transform library include directories by adding the project directory to the beginning.
+		for (auto& id : package.include_dirs) { id = (package.dir / id).string(); }
+
+		auto objs = compile(package);
+
+		if (objs.size() > 0) {
+			auto file = std::filesystem::path("lib" + package.name);
+			_STD_BUILD_VERBOSE_OUTPUT("\nLinking...");
+			std::stringstream output;
+
+			if (package.type == build_type::static_library) {
+				file.replace_extension(".a");
+				output << "ar rcs " << bin_dir / file << ' ' << objs;
+			} else if (package.type == build_type::shared_library) {
+				file.replace_extension(".so");
+				output << "g++ -shared -o " << bin_dir / file << ' ' << objs;
+			}
+
+			_STD_BUILD_VERBOSE_OUTPUT('\n');
+			command(output.str());
+			_STD_BUILD_OUTPUT("Output: " << (bin_dir / file).string() << '\n');
+			return Library(bin_dir, package.name, package.type);
 		}
+		return Library(bin_dir, package.name, build_type::header_library);
+	}
+
+	inline void create_executable(Package& project) {
+		auto bin_dir = options().bin_dir;
+
+		// Create the desired bin directory if it doesn't exist already.
+		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
 
 		// Transform include & library directories by prepending the project's working directory
 		for (auto& id : project.include_dirs) { id = (project.dir / id).string(); }
 		for (auto& ld : project.library_dirs) { ld = (project.dir / ld).string(); }
 
+		auto dep = _build_dependency_vector(project);
+
+		//TODO: add Library objects to vector and iterate over them
+		// later on when linking
+
+		std::vector<Library> libraries;
 		if (project.packages.size() > 0) {
-			std::cout << "Building dependencies...";
-			for (const auto& dependency : project.packages) {
-				auto lib = create_static_library(dependency);
-				project.library_dirs += lib.location().string();
-				project.libraries += lib.file_name().string();
-				for (const auto& inc : dependency.include_dirs) {
-					project.include_dirs += (dependency.dir / inc).string();
-				}
+			_STD_BUILD_OUTPUT("Building Dependencies: ");
+			for (const auto* p : dep) { _STD_BUILD_OUTPUT(p->name << ' '); }
+			_STD_BUILD_OUTPUT('\n');
+
+			for (auto& dependency : project.packages) {
+				// auto lib = create_static_library(dependency);
+				libraries.push_back(create_static_library(dependency));
+				// if (lib.type != build_type::header_library) {
+				// 	project.library_dirs += lib.location.string();
+				// 	project.libraries += lib.name.string();
+				// }
+				// for (const auto& inc : dependency.include_dirs) { project.include_dirs += inc; }
 			}
-			if (!verbose) { std::cout << "done\n"; }
 		}
 
 		if (project.sources.size() > 0) {
-			std::cout << "Compiling...";
-			if (verbose) { std::cout << '\n'; }
-			auto objs = compile(project);
-			if (!verbose) { std::cout << "done\n"; }
+			_STD_BUILD_OUTPUT("---------- Executable: " << project.name << " ----------\n");
 
-			std::cout << "Linking...";
-			if (verbose) { std::cout << '\n'; }
+			// for (const auto& lib : libraries) {
+			// 	if (lib.type != build_type::header_library) {
+			// 		project.library_dirs += lib.location.string();
+			// 		project.libraries += lib.name.string();
+			// 	}
+			// 	for (const auto& inc : dependency.include_dirs) { project.include_dirs += inc; }
+			// }
+
+			auto objs = compile(project);
+
+			_STD_BUILD_VERBOSE_OUTPUT("\nLinking...");
 			std::stringstream output;
-			output << "g++ ";
-			for (const auto& obj : objs) {
-				output << obj << " ";
-			}
-			output << " -o " << (bin_dir / project.name) << ' ';
+			output << "g++ " << objs << " -o " << (bin_dir / project.name) << ' ';		
 			for (const auto& ld : project.library_dirs) { output << "-L" << ld << ' '; }
 			for (const auto& l : project.libraries) { output << "-l" << l << ' '; }
+			_STD_BUILD_VERBOSE_OUTPUT('\n');
 			command(output.str());
-			if (!verbose) { std::cout << "done\n"; }
+			_STD_BUILD_VERBOSE_OUTPUT("done\n");
+			_STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << "\n");
 		}
 	}
 }
