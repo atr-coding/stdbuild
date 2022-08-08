@@ -1,4 +1,4 @@
-#define _STD_BUILD_VERBOSE
+// #define _STD_BUILD_VERBOSE
 #include "stdbuild"
 #include "module/build.h"
 #include "module2/build.h"
@@ -20,3 +20,9 @@ int main() {
 	auto proj = Project();
 	std::build::create_executable(proj);
 }
+
+
+// Building Dependencies: module module2
+// module - static - bin/libmodule.so
+// module2 - header
+// project - executable - bin/project
