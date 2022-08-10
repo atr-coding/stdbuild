@@ -202,6 +202,8 @@ namespace _STD_BUILD {
 	using Packages = ListBase<Package>;
 
 	struct Package {
+		Package() = default;
+		Package(const std::string& _name) : name(_name) {}
 		List include_dirs, library_dirs, flags, sources, libraries;
 		Packages packages;
 		Version version{ 0, 0, 0 };
@@ -366,5 +368,11 @@ namespace _STD_BUILD {
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		command(output.str());
 		_STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << "\n");
+	}
+
+	template<typename PackageType, typename... Args> requires std::is_base_of_v<Package, PackageType>
+	inline void create_executable(Args... args) {
+		auto project = PackageType(std::forward<Args>(args)...);
+		create_executable(project);
 	}
 }
