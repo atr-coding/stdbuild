@@ -112,7 +112,15 @@ namespace _STD_BUILD {
 
 	template<typename Type>
 	class ListBase {
+	private:
+		template<typename _Type, typename Stream, typename = void>
+		struct is_streamable : std::false_type {};
+
+		template<typename _Type, typename Stream>
+		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>> : std::true_type {};
 	public:
+		/// Constructors ///
+
 		_CONSTEXPR_20 ListBase() = default;
 		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_items(other.m_items) {}
 		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_items(std::move(other.m_items)) {}
@@ -171,6 +179,20 @@ namespace _STD_BUILD {
 		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
 		_CONSTEXPR_20 std::size_t size() { return m_items.size(); }
 		_CONSTEXPR_20 const std::size_t size() const { return m_items.size(); }
+
+		template<typename _Type = Type>
+		_CONSTEXPR_20 auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
+			if (m_items.size() > 0) {
+				std::ostringstream ss;
+				for (const auto& item : m_items) {
+					ss << item << delim;
+				}
+				auto str = std::move(ss.str());
+				str.erase(str.end() - 1); // Removes the last delimiter from the string
+				return std::move(str);
+			}
+			return "";
+		}
 	private:
 		_CONSTEXPR_20 void add_items(const Type& item) { m_items.push_back(item); }
 		_CONSTEXPR_20 void add_items(const ListBase<Type>& other) { m_items.insert(m_items.end(), other.begin(), other.end()); }
@@ -207,7 +229,7 @@ namespace _STD_BUILD {
 		List include_dirs, library_dirs, flags, sources, libraries;
 		Packages packages;
 		Version version{ 0, 0, 0 };
-		std::string name { "package" };
+		std::string name{ "package" };
 		build_path dir{ "." };
 		build_type type{ build_type::static_library };
 	};
