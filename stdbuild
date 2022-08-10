@@ -114,33 +114,33 @@ namespace _STD_BUILD {
 	class ListBase {
 	public:
 		_CONSTEXPR_20 ListBase() = default;
-		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_flags(other.m_flags) {}
-		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_flags(std::move(other.m_flags)) {}
+		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_items(other.m_items) {}
+		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_items(std::move(other.m_items)) {}
 
-		template<typename... FlagType> requires _List_Test<Type, FlagType...>
-		_CONSTEXPR_20 ListBase(const Type& flag, const FlagType&... flags) {
-			add_flags(flag);
-			(add_flags(flags), ...);
+		template<typename... ItemType> requires _List_Test<Type, ItemType...>
+		_CONSTEXPR_20 ListBase(const Type& item, const ItemType&... items) {
+			add_items(item);
+			(add_items(items), ...);
 		}
 
-		template<typename... FlagType> requires _List_Test<Type, FlagType...>
-		_CONSTEXPR_20 ListBase(const ListBase<Type>& flag, const FlagType&... flags) {
-			add_flags(flag);
-			(add_flags(flags), ...);
+		template<typename... ItemType> requires _List_Test<Type, ItemType...>
+		_CONSTEXPR_20 ListBase(const ListBase<Type>& item, const ItemType&... items) {
+			add_items(item);
+			(add_items(items), ...);
 		}
 
 		/// ListBase Operators ///
 
 		_CONSTEXPR_20 ListBase<Type>& operator=(const ListBase<Type>& other) {
 			if (this != &other) {
-				m_flags = other.m_flags;
+				m_items = other.m_items;
 			}
 			return *this;
 		}
 
 		_CONSTEXPR_20 ListBase<Type>& operator=(ListBase<Type>&& other) {
 			if (this != &other) {
-				m_flags = std::move(other.m_flags);
+				m_items = std::move(other.m_items);
 			}
 			return *this;
 		}
@@ -151,31 +151,31 @@ namespace _STD_BUILD {
 			return new_list;
 		}
 
-		_CONSTEXPR_20 ListBase<Type> operator+(const Type& flag) {
+		_CONSTEXPR_20 ListBase<Type> operator+(const Type& item) {
 			ListBase<Type> new_list(*this);
-			new_list += flag;
+			new_list += item;
 			return new_list;
 		}
 
-		_CONSTEXPR_20 void operator+=(const ListBase<Type>& other) { m_flags.insert(m_flags.end(), other.m_flags.begin(), other.m_flags.end()); }
-		_CONSTEXPR_20 void operator+=(const Type& flag) { m_flags.push_back(flag); }
-		_CONSTEXPR_20 void operator+=(Type&& flag) { m_flags.push_back(std::move(flag)); }
+		_CONSTEXPR_20 void operator+=(const ListBase<Type>& other) { m_items.insert(m_items.end(), other.m_items.begin(), other.m_items.end()); }
+		_CONSTEXPR_20 void operator+=(const Type& item) { m_items.push_back(item); }
+		_CONSTEXPR_20 void operator+=(Type&& item) { m_items.push_back(std::move(item)); }
 
 		/// End ListBase Operators ///
 
-		_CONSTEXPR_20 std::vector<Type>& get() { return m_flags; }
-		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_flags; }
-		_CONSTEXPR_20 auto begin() { return m_flags.begin(); }
-		_CONSTEXPR_20 const auto begin() const { return m_flags.begin(); }
-		_CONSTEXPR_20 auto end() { return m_flags.end(); }
-		_CONSTEXPR_20 const auto end() const { return m_flags.end(); }
-		_CONSTEXPR_20 std::size_t size() { return m_flags.size(); }
-		_CONSTEXPR_20 const std::size_t size() const { return m_flags.size(); }
+		_CONSTEXPR_20 std::vector<Type>& get() { return m_items; }
+		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_items; }
+		_CONSTEXPR_20 auto begin() { return m_items.begin(); }
+		_CONSTEXPR_20 const auto begin() const { return m_items.begin(); }
+		_CONSTEXPR_20 auto end() { return m_items.end(); }
+		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
+		_CONSTEXPR_20 std::size_t size() { return m_items.size(); }
+		_CONSTEXPR_20 const std::size_t size() const { return m_items.size(); }
 	private:
-		_CONSTEXPR_20 void add_flags(const Type& flag) { m_flags.push_back(flag); }
-		_CONSTEXPR_20 void add_flags(const ListBase<Type>& other) { m_flags.insert(m_flags.end(), other.begin(), other.end()); }
+		_CONSTEXPR_20 void add_items(const Type& item) { m_items.push_back(item); }
+		_CONSTEXPR_20 void add_items(const ListBase<Type>& other) { m_items.insert(m_items.end(), other.begin(), other.end()); }
 	private:
-		_CONSTEXPR_20 std::vector<Type> m_flags;
+		_CONSTEXPR_20 std::vector<Type> m_items;
 	};
 
 	using List = ListBase<std::string>;
