@@ -2,3 +2,4 @@
 build.bat
 *.exe
 Todo.md
+*.clang-format

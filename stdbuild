@@ -111,6 +111,26 @@ namespace _STD_BUILD {
 	////////////// List //////////////
 
 	template<typename Type>
+	struct _Export {
+		Type value;
+		bool should_export{ true };
+
+		_Export() = default;
+
+		template<typename _Type> requires std::is_convertible_v<_Type, Type>
+		_Export(const _Type& _value) : value(_value) {}
+
+		template<typename _Type> requires std::is_convertible_v<_Type, Type>
+		_Export(const _Type& _value, bool _should_export) : value(_value), should_export(_should_export) {}
+	};
+
+	template<typename Type>
+	std::ostream& operator<<(std::ostream& os, const _Export<Type>& e) {
+		os << e.value;
+		return os;
+	}
+
+	template<typename Type>
 	class ListBase {
 	private:
 		template<typename _Type, typename Stream, typename = void>
@@ -119,69 +139,28 @@ namespace _STD_BUILD {
 		template<typename _Type, typename Stream>
 		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>> : std::true_type {};
 	public:
-		/// Constructors ///
-
-		_CONSTEXPR_20 ListBase() = default;
-		_CONSTEXPR_20 ListBase(const ListBase<Type>& other) : m_items(other.m_items) {}
-		_CONSTEXPR_20 ListBase(ListBase<Type>&& other) : m_items(std::move(other.m_items)) {}
-
-		template<typename... ItemType> requires _List_Test<Type, ItemType...>
-		_CONSTEXPR_20 ListBase(const Type& item, const ItemType&... items) {
-			add_items(item);
-			(add_items(items), ...);
+		ListBase() = default;
+		ListBase(const ListBase<Type>& list) : m_items(list.m_items) {}
+		ListBase(std::initializer_list<Type> strings) {
+			m_items.insert(m_items.end(), strings.begin(), strings.end());
 		}
 
-		template<typename... ItemType> requires _List_Test<Type, ItemType...>
-		_CONSTEXPR_20 ListBase(const ListBase<Type>& item, const ItemType&... items) {
-			add_items(item);
-			(add_items(items), ...);
+		/// Misc Functions ///
+
+		std::vector<Type>& get() {
+			return m_items;
 		}
 
-		/// ListBase Operators ///
-
-		_CONSTEXPR_20 ListBase<Type>& operator=(const ListBase<Type>& other) {
-			if (this != &other) {
-				m_items = other.m_items;
-			}
-			return *this;
+		const std::vector<Type>& get() const {
+			return m_items;
 		}
 
-		_CONSTEXPR_20 ListBase<Type>& operator=(ListBase<Type>&& other) {
-			if (this != &other) {
-				m_items = std::move(other.m_items);
-			}
-			return *this;
+		std::size_t size() {
+			return m_items.size();
 		}
-
-		_CONSTEXPR_20 ListBase<Type> operator+(const ListBase<Type>& other) {
-			ListBase<Type> new_list(*this);
-			new_list += other;
-			return new_list;
-		}
-
-		_CONSTEXPR_20 ListBase<Type> operator+(const Type& item) {
-			ListBase<Type> new_list(*this);
-			new_list += item;
-			return new_list;
-		}
-
-		_CONSTEXPR_20 void operator+=(const ListBase<Type>& other) { m_items.insert(m_items.end(), other.m_items.begin(), other.m_items.end()); }
-		_CONSTEXPR_20 void operator+=(const Type& item) { m_items.push_back(item); }
-		_CONSTEXPR_20 void operator+=(Type&& item) { m_items.push_back(std::move(item)); }
-
-		/// End ListBase Operators ///
-
-		_CONSTEXPR_20 std::vector<Type>& get() { return m_items; }
-		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_items; }
-		_CONSTEXPR_20 auto begin() { return m_items.begin(); }
-		_CONSTEXPR_20 const auto begin() const { return m_items.begin(); }
-		_CONSTEXPR_20 auto end() { return m_items.end(); }
-		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
-		_CONSTEXPR_20 std::size_t size() { return m_items.size(); }
-		_CONSTEXPR_20 const std::size_t size() const { return m_items.size(); }
 
 		template<typename _Type = Type>
-		_CONSTEXPR_20 auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
+		auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
 			if (m_items.size() > 0) {
 				std::ostringstream ss;
 				for (const auto& item : m_items) {
@@ -193,30 +172,50 @@ namespace _STD_BUILD {
 			}
 			return "";
 		}
+
+		/// Operators ///
+
+		ListBase<Type>& operator=(const ListBase<Type>& list) {
+			if (this != &list) {
+				m_items = list.m_items;
+			}
+			return *this;
+		}
+
+		ListBase<Type>& operator=(ListBase<Type>&& list) {
+			if (this != &list) {
+				m_items = std::move(list.m_items);
+			}
+			return *this;
+		}
+
+		void operator+=(const Type& item) {
+			m_items.push_back(item);
+		}
+
+		void operator+=(const ListBase<Type>& list) {
+			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
+		}
+
+		/// Iterator Functions ///
+
+		auto begin() { return m_items.begin(); }
+		const auto begin() const { return m_items.begin(); }
+		auto end() { return m_items.end(); }
+		const auto end() const { return m_items.end(); }
 	private:
-		_CONSTEXPR_20 void add_items(const Type& item) { m_items.push_back(item); }
-		_CONSTEXPR_20 void add_items(const ListBase<Type>& other) { m_items.insert(m_items.end(), other.begin(), other.end()); }
-	private:
-		_CONSTEXPR_20 std::vector<Type> m_items;
+		std::vector<Type> m_items;
 	};
 
-	using List = ListBase<std::string>;
-	using DirectoryList = ListBase<build_path>;
-
-	template<typename T>
-	_CONSTEXPR_20 ListBase<T> operator+(const std::string& flag, const ListBase<T>& other) {
-		List new_list(flag);
-		new_list += other;
-		return new_list;
-	}
-
-	template<typename T>
-	std::ostream& operator<<(std::ostream& os, const ListBase<T>& list) {
-		for (const auto& i : list.get()) {
-			os << i << ' ';
+	template<typename Type>
+	std::ostream& operator<<(std::ostream& os, const ListBase<Type>& list) {
+		for (const auto& item : list.get()) {
+			os << item << ' ';
 		}
 		return os;
 	}
+
+	using StringList = ListBase<_Export<std::string>>;
 
 	////////////// Library //////////////
 
@@ -226,7 +225,7 @@ namespace _STD_BUILD {
 	struct Package {
 		Package() = default;
 		Package(const std::string& _name) : name(_name) {}
-		List include_dirs, library_dirs, flags, sources, libraries;
+		StringList include_dirs, library_dirs, flags, sources, libraries;
 		Packages packages;
 		Version version{ 0, 0, 0 };
 		std::string name{ "package" };
@@ -270,18 +269,18 @@ namespace _STD_BUILD {
 		return std::move(dep);
 	}
 
-	inline List compile(const Package& project) {
+	inline StringList compile(const Package& project) {
 		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 		auto build_dir = options().build_dir / project.name;
 
 		// Create the desired build directory if it doesn't exist already.
 		if (!std::filesystem::exists(build_dir)) { std::filesystem::create_directory(build_dir); }
 
-		List obj_files;
+		StringList obj_files;
 
 		for (const auto& f : project.sources) {
 			std::stringstream output;
-			std::filesystem::path fp(f);
+			std::filesystem::path fp(f.value);
 			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
 
 			output << _STD_BUILD_COMPILER << " -c " << project.flags;
@@ -304,7 +303,7 @@ namespace _STD_BUILD {
 		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
 
 		// Transform library include directories by adding the project directory to the beginning.
-		for (auto& id : package.include_dirs) { id = (package.dir / id).string(); }
+		for (auto& id : package.include_dirs) { id = { (package.dir / id.value).string(), id.should_export }; }
 
 		if (package.type != build_type::header_library) {
 			if (package.sources.size() > 0) {
@@ -348,8 +347,8 @@ namespace _STD_BUILD {
 		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
 
 		// Transform include & library directories by prepending the project's working directory
-		for (auto& id : project.include_dirs) { id = (project.dir / id).string(); }
-		for (auto& ld : project.library_dirs) { ld = (project.dir / ld).string(); }
+		for (auto& id : project.include_dirs) { id = (project.dir / id.value).string(); }
+		for (auto& ld : project.library_dirs) { ld = (project.dir / ld.value).string(); }
 
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
 		auto dep = _build_dependency_vector(project);
@@ -365,7 +364,9 @@ namespace _STD_BUILD {
 
 				// Add this dependencies include directories to our main project's include directories
 				for (const auto& inc_dir : d->include_dirs) {
-					project.include_dirs += inc_dir;
+					if (inc_dir.should_export) {
+						project.include_dirs += inc_dir;
+					}
 				}
 			}
 		}
@@ -377,7 +378,6 @@ namespace _STD_BUILD {
 		for (const auto& lib : libraries) {
 			if (lib.type != build_type::header_library) {
 				lids << "-L" << lib.location.string() << ' ';
-				// ls << "-Wl, -B" << (lib.type == build_type::static_library ? "static -l" : "dynamic -l") << lib.name.string();
 				ls << "-l" << lib.name.string() << ' ';
 			}
 		}
