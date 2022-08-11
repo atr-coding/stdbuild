@@ -139,28 +139,30 @@ namespace _STD_BUILD {
 		template<typename _Type, typename Stream>
 		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>> : std::true_type {};
 	public:
-		ListBase() = default;
-		ListBase(const ListBase<Type>& list) : m_items(list.m_items) {}
-		ListBase(std::initializer_list<Type> strings) {
+		_CONSTEXPR_20 ListBase() = default;
+		
+		_CONSTEXPR_20 ListBase(const ListBase<Type>& list) : m_items(list.m_items) {}
+		
+		_CONSTEXPR_20 ListBase(std::initializer_list<Type> strings) {
 			m_items.insert(m_items.end(), strings.begin(), strings.end());
 		}
 
 		/// Misc Functions ///
 
-		std::vector<Type>& get() {
+		_CONSTEXPR_20 std::vector<Type>& get() {
 			return m_items;
 		}
 
-		const std::vector<Type>& get() const {
+		_CONSTEXPR_20 const std::vector<Type>& get() const {
 			return m_items;
 		}
 
-		std::size_t size() {
+		_CONSTEXPR_20 std::size_t size() {
 			return m_items.size();
 		}
 
 		template<typename _Type = Type>
-		auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
+		_CONSTEXPR_20 auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
 			if (m_items.size() > 0) {
 				std::ostringstream ss;
 				for (const auto& item : m_items) {
@@ -175,36 +177,36 @@ namespace _STD_BUILD {
 
 		/// Operators ///
 
-		ListBase<Type>& operator=(const ListBase<Type>& list) {
+		_CONSTEXPR_20 ListBase<Type>& operator=(const ListBase<Type>& list) {
 			if (this != &list) {
 				m_items = list.m_items;
 			}
 			return *this;
 		}
 
-		ListBase<Type>& operator=(ListBase<Type>&& list) {
+		_CONSTEXPR_20 ListBase<Type>& operator=(ListBase<Type>&& list) {
 			if (this != &list) {
 				m_items = std::move(list.m_items);
 			}
 			return *this;
 		}
 
-		void operator+=(const Type& item) {
+		_CONSTEXPR_20 void operator+=(const Type& item) {
 			m_items.push_back(item);
 		}
 
-		void operator+=(const ListBase<Type>& list) {
+		_CONSTEXPR_20 void operator+=(const ListBase<Type>& list) {
 			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
 		}
 
 		/// Iterator Functions ///
 
-		auto begin() { return m_items.begin(); }
-		const auto begin() const { return m_items.begin(); }
-		auto end() { return m_items.end(); }
-		const auto end() const { return m_items.end(); }
+		_CONSTEXPR_20 auto begin() { return m_items.begin(); }
+		_CONSTEXPR_20 const auto begin() const { return m_items.begin(); }
+		_CONSTEXPR_20 auto end() { return m_items.end(); }
+		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
 	private:
-		std::vector<Type> m_items;
+		_CONSTEXPR_20 std::vector<Type> m_items;
 	};
 
 	template<typename Type>
@@ -362,10 +364,16 @@ namespace _STD_BUILD {
 			for (Package* d : dep) {
 				libraries.push_back(create_library(*d));
 
-				// Add this dependencies include directories to our main project's include directories
+				// Add this dependencies include/lib directories to our main project's include/lib directories
 				for (const auto& inc_dir : d->include_dirs) {
 					if (inc_dir.should_export) {
 						project.include_dirs += inc_dir;
+					}
+				}
+
+				for (const auto& lib_dir : d->library_dirs) {
+					if (lib_dir.should_export) {
+						project.library_dirs += lib_dir;
 					}
 				}
 			}
