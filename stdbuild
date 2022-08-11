@@ -382,6 +382,15 @@ namespace _STD_BUILD {
 			}
 		}
 
+		// TODO: Export 'Library Directories' and 'Libraries' from packages
+		for (const auto& lib_dir : project.library_dirs) {
+			ls << "-L" << lib_dir.value << ' ';
+		}
+
+		for (const auto& lib : project.libraries) {
+			ls << "-l" << lib.value << ' ';
+		}
+
 		auto objs = compile(project);
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
