@@ -93,17 +93,14 @@ namespace _STD_BUILD {
 	struct version {
 		_CONSTEXPR_17 version() = default;
 		_CONSTEXPR_17 version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
-		_CONSTEXPR_17 uint32_t major() { return m_major; }
 		_CONSTEXPR_17 const uint32_t major() const { return m_major; }
-		_CONSTEXPR_17 uint32_t minor() { return m_minor; }
 		_CONSTEXPR_17 const uint32_t minor() const { return m_minor; }
-		_CONSTEXPR_17 uint32_t patch() { return m_patch; }
 		_CONSTEXPR_17 const uint32_t patch() const { return m_patch; }
-		_CONSTEXPR_17 bool operator>(const version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
-		_CONSTEXPR_17 bool operator<(const version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
-		_CONSTEXPR_17 bool operator==(const version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
-		_CONSTEXPR_17 bool operator>=(const version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
-		_CONSTEXPR_17 bool operator<=(const version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
+		_CONSTEXPR_17 bool operator>(const version& other) const { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
+		_CONSTEXPR_17 bool operator<(const version& other) const { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
+		_CONSTEXPR_17 bool operator==(const version& other) const { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
+		_CONSTEXPR_17 bool operator>=(const version& other) const { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
+		_CONSTEXPR_17 bool operator<=(const version& other) const { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
 	private:
 		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
 	};
@@ -157,7 +154,7 @@ namespace _STD_BUILD {
 			return m_items;
 		}
 
-		_CONSTEXPR_20 std::size_t size() {
+		_CONSTEXPR_20 std::size_t size() const {
 			return m_items.size();
 		}
 
@@ -171,7 +168,7 @@ namespace _STD_BUILD {
 				}
 				auto str = std::move(ss.str());
 				str.erase(str.end() - 1); // Removes the last delimiter from the string
-				return std::move(str);
+				return str;
 			}
 			return "";
 		}
@@ -227,7 +224,7 @@ namespace _STD_BUILD {
 
 	struct package {
 		package() = default;
-		package(const std::string& _name) : name(_name) {}
+		explicit package(const std::string& _name) : name(_name) {}
 		string_list include_dirs, library_dirs, flags, sources, libraries;
 		package_list pkgs;
 		version ver{ 0, 0, 0 };
@@ -237,6 +234,8 @@ namespace _STD_BUILD {
 	};
 
 	////////////// Library //////////////
+
+	// Library struct is used to pass exported data from the module to the project that uses the module
 
 	struct Library {
 		std::filesystem::path location;
@@ -269,7 +268,7 @@ namespace _STD_BUILD {
 			return false;
 			});
 
-		return std::move(dep);
+		return dep;
 	}
 
 	inline string_list compile(const package& project) {
