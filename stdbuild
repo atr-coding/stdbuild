@@ -299,7 +299,9 @@ namespace _STD_BUILD {
 	////////////// Create Binaries //////////////
 
 	inline Library create_library(package& pkg) {
-		_STD_BUILD_OUTPUT("---------- Library: " << pkg.name << " ----------\n");
+		_STD_BUILD_OUTPUT(pkg.name << " - " << (pkg.type == build_type::header_library ? "header\n" : (pkg.type == build_type::static_library ? "static" : "shared")));
+		if (pkg.type != build_type::header_library) { _STD_BUILD_VERBOSE_OUTPUT('\n'); }
+
 		auto bin_dir = options().bin_dir;
 
 		// Create the desired bin directory if it doesn't exist already.
@@ -327,14 +329,16 @@ namespace _STD_BUILD {
 
 					_STD_BUILD_VERBOSE_OUTPUT('\n');
 					command(output.str());
-					_STD_BUILD_OUTPUT("Output: " << (bin_dir / file).string() << '\n');
+					_STD_BUILD_VERBOSE_OUTPUT("output");
+					_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
 					return Library(bin_dir, pkg.name, pkg.type);
 				}
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
 		} else {
-			_STD_BUILD_VERBOSE_OUTPUT("Header only.\n");
+			// _STD_BUILD_OUTPUT('\n');
+			// _STD_BUILD_VERBOSE_OUTPUT("Header only.\n");
 		}
 		return Library(bin_dir, pkg.name, build_type::header_library);
 	}
@@ -380,7 +384,8 @@ namespace _STD_BUILD {
 			}
 		}
 
-		_STD_BUILD_OUTPUT("---------- Executable: " << project.name << " ----------\n");
+		_STD_BUILD_OUTPUT(project.name << " - executable");
+		_STD_BUILD_VERBOSE_OUTPUT('\n');
 
 		std::stringstream lids; // Library Include Directory String
 		std::stringstream ls; // Libraries String
@@ -407,12 +412,8 @@ namespace _STD_BUILD {
 		output << _STD_BUILD_COMPILER << ' ' << objs << " -o " << (bin_dir / project.name) << ' ' << lids.str() << ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		command(output.str());
-		_STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << "\n");
-	}
-
-	template<typename PackageType, typename... Args> requires std::is_base_of_v<package, PackageType>
-	inline void create_executable(Args... args) {
-		auto project = PackageType(std::forward<Args>(args)...);
-		create_executable(project);
+		// _STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << '\n');
+		_STD_BUILD_VERBOSE_OUTPUT("output");
+		_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
 	}
 }

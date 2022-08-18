@@ -3,8 +3,8 @@
 #include "module/build.h"
 #include "module2/build.h"
 
-struct Project : std::build::package {
-	Project() {
+struct project : std::build::package {
+	project() {
 		name = "project";
 		dir = "project/";
 		flags = { "-std=c++20", "-DTEST_DEF" };
@@ -17,12 +17,6 @@ struct Project : std::build::package {
 };
 
 int main() {
-	auto proj = Project();
+	auto proj = project();
 	std::build::create_executable(proj);
 }
-
-
-// Building Dependencies: module module2
-// module - static - bin/libmodule.so
-// module2 - header
-// project - executable - bin/project
