@@ -45,13 +45,13 @@ namespace _STD_BUILD {
 	using build_path = std::filesystem::path;
 
 	template<typename Type>
-	class ListBase;
+	class list_base;
 
 	template<typename From, typename... To>
 	concept _Is_Convertable_Multi = (std::convertible_to<From, To> || ...);
 
 	template<typename T1, typename... FlagType>
-	concept _List_Test = (_Is_Convertable_Multi<FlagType, T1, ListBase<T1>> && ...);
+	concept _List_Test = (_Is_Convertable_Multi<FlagType, T1, list_base<T1>> && ...);
 
 	////////////// Options //////////////
 
@@ -88,22 +88,22 @@ namespace _STD_BUILD {
 		std::system(cmd.c_str());
 	}
 
-	////////////// Version //////////////
+	////////////// version //////////////
 
-	struct Version {
-		_CONSTEXPR_17 Version() = default;
-		_CONSTEXPR_17 Version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
+	struct version {
+		_CONSTEXPR_17 version() = default;
+		_CONSTEXPR_17 version(uint32_t major, uint32_t minor, uint32_t patch) : m_major(major), m_minor(minor), m_patch(patch) {}
 		_CONSTEXPR_17 uint32_t major() { return m_major; }
 		_CONSTEXPR_17 const uint32_t major() const { return m_major; }
 		_CONSTEXPR_17 uint32_t minor() { return m_minor; }
 		_CONSTEXPR_17 const uint32_t minor() const { return m_minor; }
 		_CONSTEXPR_17 uint32_t patch() { return m_patch; }
 		_CONSTEXPR_17 const uint32_t patch() const { return m_patch; }
-		_CONSTEXPR_17 bool operator>(const Version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
-		_CONSTEXPR_17 bool operator<(const Version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
-		_CONSTEXPR_17 bool operator==(const Version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
-		_CONSTEXPR_17 bool operator>=(const Version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
-		_CONSTEXPR_17 bool operator<=(const Version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
+		_CONSTEXPR_17 bool operator>(const version& other) { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
+		_CONSTEXPR_17 bool operator<(const version& other) { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
+		_CONSTEXPR_17 bool operator==(const version& other) { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
+		_CONSTEXPR_17 bool operator>=(const version& other) { return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch); }
+		_CONSTEXPR_17 bool operator<=(const version& other) { return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch); }
 	private:
 		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
 	};
@@ -111,27 +111,27 @@ namespace _STD_BUILD {
 	////////////// List //////////////
 
 	template<typename Type>
-	struct _Export {
+	struct _Exporter {
 		Type value;
 		bool should_export{ true };
 
-		_Export() = default;
+		_Exporter() = default;
 
 		template<typename _Type> requires std::is_convertible_v<_Type, Type>
-		_Export(const _Type& _value) : value(_value) {}
+		_Exporter(const _Type& _value) : value(_value) {}
 
 		template<typename _Type> requires std::is_convertible_v<_Type, Type>
-		_Export(const _Type& _value, bool _should_export) : value(_value), should_export(_should_export) {}
+		_Exporter(const _Type& _value, bool _should_export) : value(_value), should_export(_should_export) {}
 	};
 
 	template<typename Type>
-	std::ostream& operator<<(std::ostream& os, const _Export<Type>& e) {
+	std::ostream& operator<<(std::ostream& os, const _Exporter<Type>& e) {
 		os << e.value;
 		return os;
 	}
 
 	template<typename Type>
-	class ListBase {
+	class list_base {
 	private:
 		template<typename _Type, typename Stream, typename = void>
 		struct is_streamable : std::false_type {};
@@ -139,11 +139,11 @@ namespace _STD_BUILD {
 		template<typename _Type, typename Stream>
 		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>> : std::true_type {};
 	public:
-		_CONSTEXPR_20 ListBase() = default;
-		
-		_CONSTEXPR_20 ListBase(const ListBase<Type>& list) : m_items(list.m_items) {}
-		
-		_CONSTEXPR_20 ListBase(std::initializer_list<Type> strings) {
+		_CONSTEXPR_20 list_base() = default;
+
+		_CONSTEXPR_20 list_base(const list_base<Type>& list) : m_items(list.m_items) {}
+
+		_CONSTEXPR_20 list_base(std::initializer_list<Type> strings) {
 			m_items.insert(m_items.end(), strings.begin(), strings.end());
 		}
 
@@ -161,6 +161,7 @@ namespace _STD_BUILD {
 			return m_items.size();
 		}
 
+		// TODO: improve this
 		template<typename _Type = Type>
 		_CONSTEXPR_20 auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
 			if (m_items.size() > 0) {
@@ -177,14 +178,14 @@ namespace _STD_BUILD {
 
 		/// Operators ///
 
-		_CONSTEXPR_20 ListBase<Type>& operator=(const ListBase<Type>& list) {
+		_CONSTEXPR_20 list_base<Type>& operator=(const list_base<Type>& list) {
 			if (this != &list) {
 				m_items = list.m_items;
 			}
 			return *this;
 		}
 
-		_CONSTEXPR_20 ListBase<Type>& operator=(ListBase<Type>&& list) {
+		_CONSTEXPR_20 list_base<Type>& operator=(list_base<Type>&& list) {
 			if (this != &list) {
 				m_items = std::move(list.m_items);
 			}
@@ -195,7 +196,7 @@ namespace _STD_BUILD {
 			m_items.push_back(item);
 		}
 
-		_CONSTEXPR_20 void operator+=(const ListBase<Type>& list) {
+		_CONSTEXPR_20 void operator+=(const list_base<Type>& list) {
 			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
 		}
 
@@ -210,26 +211,26 @@ namespace _STD_BUILD {
 	};
 
 	template<typename Type>
-	std::ostream& operator<<(std::ostream& os, const ListBase<Type>& list) {
+	std::ostream& operator<<(std::ostream& os, const list_base<Type>& list) {
 		for (const auto& item : list.get()) {
 			os << item << ' ';
 		}
 		return os;
 	}
 
-	using StringList = ListBase<_Export<std::string>>;
+	using string_list = list_base<_Exporter<std::string>>;
 
 	////////////// Library //////////////
 
-	struct Package;
-	using Packages = ListBase<Package>;
+	struct package;
+	using package_list = list_base<package>;
 
-	struct Package {
-		Package() = default;
-		Package(const std::string& _name) : name(_name) {}
-		StringList include_dirs, library_dirs, flags, sources, libraries;
-		Packages packages;
-		Version version{ 0, 0, 0 };
+	struct package {
+		package() = default;
+		package(const std::string& _name) : name(_name) {}
+		string_list include_dirs, library_dirs, flags, sources, libraries;
+		package_list pkgs;
+		version ver{ 0, 0, 0 };
 		std::string name{ "package" };
 		build_path dir{ "." };
 		build_type type{ build_type::static_library };
@@ -246,22 +247,22 @@ namespace _STD_BUILD {
 
 	////////////// Compilation //////////////
 
-	using _Dependency_Vec = std::vector<Package*>;
+	using _Dependency_Vec = std::vector<package*>;
 	using _Dependency_Vec_Ref = _Dependency_Vec&;
 
-	inline void _add_packages(_Dependency_Vec_Ref dep, Package& project) {
-		for (auto& package : project.packages) {
-			dep.push_back(&package);
-			_add_packages(dep, package);
+	inline void _add_packages(_Dependency_Vec_Ref dep, package& project) {
+		for (auto& pkg : project.pkgs) {
+			dep.push_back(&pkg);
+			_add_packages(dep, pkg);
 		}
 	};
 
-	inline _Dependency_Vec _build_dependency_vector(Package& main_project) {
+	inline _Dependency_Vec _build_dependency_vector(package& main_project) {
 		_Dependency_Vec dep;
 		_add_packages(dep, main_project);
 
 		// Iterate through the packages and find/remove duplicates
-		std::erase_if(dep, [&](const Package* pkg) {
+		std::erase_if(dep, [&](const package* pkg) {
 			for (const auto* p : dep) {
 				if (p != pkg && p->name == pkg->name) { return true; }
 			}
@@ -271,14 +272,14 @@ namespace _STD_BUILD {
 		return std::move(dep);
 	}
 
-	inline StringList compile(const Package& project) {
+	inline string_list compile(const package& project) {
 		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 		auto build_dir = options().build_dir / project.name;
 
 		// Create the desired build directory if it doesn't exist already.
 		if (!std::filesystem::exists(build_dir)) { std::filesystem::create_directory(build_dir); }
 
-		StringList obj_files;
+		string_list obj_files;
 
 		for (const auto& f : project.sources) {
 			std::stringstream output;
@@ -297,29 +298,29 @@ namespace _STD_BUILD {
 
 	////////////// Create Binaries //////////////
 
-	inline Library create_library(Package& package) {
-		_STD_BUILD_OUTPUT("---------- Library: " << package.name << " ----------\n");
+	inline Library create_library(package& pkg) {
+		_STD_BUILD_OUTPUT("---------- Library: " << pkg.name << " ----------\n");
 		auto bin_dir = options().bin_dir;
 
 		// Create the desired bin directory if it doesn't exist already.
 		if (!std::filesystem::exists(bin_dir)) { std::filesystem::create_directory(bin_dir); }
 
 		// Transform library include directories by adding the project directory to the beginning.
-		for (auto& id : package.include_dirs) { id = { (package.dir / id.value).string(), id.should_export }; }
+		for (auto& id : pkg.include_dirs) { id = { (pkg.dir / id.value).string(), id.should_export }; }
 
-		if (package.type != build_type::header_library) {
-			if (package.sources.size() > 0) {
-				auto objs = compile(package);
+		if (pkg.type != build_type::header_library) {
+			if (pkg.sources.size() > 0) {
+				auto objs = compile(pkg);
 
 				if (objs.size() > 0) {
-					auto file = std::filesystem::path("lib" + package.name);
+					auto file = std::filesystem::path("lib" + pkg.name);
 					_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 					std::stringstream output;
 
-					if (package.type == build_type::static_library) {
+					if (pkg.type == build_type::static_library) {
 						file.replace_extension(".a");
 						output << "ar rcs " << bin_dir / file << ' ' << objs;
-					} else if (package.type == build_type::shared_library) {
+					} else if (pkg.type == build_type::shared_library) {
 						file.replace_extension(".so");
 						output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << objs;
 					}
@@ -327,7 +328,7 @@ namespace _STD_BUILD {
 					_STD_BUILD_VERBOSE_OUTPUT('\n');
 					command(output.str());
 					_STD_BUILD_OUTPUT("Output: " << (bin_dir / file).string() << '\n');
-					return Library(bin_dir, package.name, package.type);
+					return Library(bin_dir, pkg.name, pkg.type);
 				}
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
@@ -335,10 +336,10 @@ namespace _STD_BUILD {
 		} else {
 			_STD_BUILD_VERBOSE_OUTPUT("Header only.\n");
 		}
-		return Library(bin_dir, package.name, build_type::header_library);
+		return Library(bin_dir, pkg.name, build_type::header_library);
 	}
 
-	inline void create_executable(Package& project) {
+	inline void create_executable(package& project) {
 		// Verify that we have source files to work with.
 		if (project.sources.size() == 0) { _STD_BUILD_OUTPUT("No source files.\n"); return; }
 
@@ -361,7 +362,7 @@ namespace _STD_BUILD {
 			_STD_BUILD_OUTPUT("Building Dependencies: ");
 			for (const auto* p : dep) { _STD_BUILD_OUTPUT(p->name << ' '); }
 			_STD_BUILD_OUTPUT('\n');
-			for (Package* d : dep) {
+			for (package* d : dep) {
 				libraries.push_back(create_library(*d));
 
 				// Add this dependencies include/lib directories to our main project's include/lib directories
@@ -409,7 +410,7 @@ namespace _STD_BUILD {
 		_STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << "\n");
 	}
 
-	template<typename PackageType, typename... Args> requires std::is_base_of_v<Package, PackageType>
+	template<typename PackageType, typename... Args> requires std::is_base_of_v<package, PackageType>
 	inline void create_executable(Args... args) {
 		auto project = PackageType(std::forward<Args>(args)...);
 		create_executable(project);

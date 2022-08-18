@@ -3,13 +3,13 @@
 #include "module/build.h"
 #include "module2/build.h"
 
-struct Project : std::build::Package {
+struct Project : std::build::package {
 	Project() {
 		name = "project";
 		dir = "project/";
 		flags = { "-std=c++20", "-DTEST_DEF" };
 		sources = { "src/main.cpp", "src/test.cpp" };
-		packages = {
+		pkgs = {
 			Module("module"),
 			Module2("module2")
 		};
