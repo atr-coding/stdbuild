@@ -1,7 +1,9 @@
 // #define _STD_BUILD_VERBOSE
-#include "stdbuild"
 #include "module/build.h"
-#include "module2/build.h"
+
+#include "stdbuild"
+
+// #include "module2/build.h"
 
 struct project : std::build::package {
 	project() {
@@ -9,10 +11,7 @@ struct project : std::build::package {
 		dir = "project/";
 		flags = { "-std=c++20", "-DTEST_DEF" };
 		sources = { "src/main.cpp", "src/test.cpp" };
-		pkgs = {
-			Module("module"),
-			Module2("module2")
-		};
+		pkgs = { Module("module"), Module2("module2") };
 	}
 };
 
