@@ -37,7 +37,7 @@
 #elif defined(__clang__)
 #define _STD_BUILD_COMPILER "clang"
 #else
-#error A supported compiler (cl, g++, clang) must be used.
+#error A supported compiler (msvc, g++, clang) must be used.
 #endif
 
 namespace _STD_BUILD {
@@ -90,13 +90,9 @@ namespace _STD_BUILD {
 		options().bin_dir = path;
 	}
 
-	inline void set_option(const std::string& opt, bool value) {
-		options().set(opt, value);
-	}
+	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
 
-	inline bool get_option(const std::string& opt) {
-		return options().get(opt);
-	}
+	inline bool get_option(const std::string& opt) { return options().get(opt); }
 	////////////// Command //////////////
 
 	void command(const std::string& cmd) {
@@ -139,26 +135,32 @@ namespace _STD_BUILD {
 
 	////////////// List //////////////
 
-	const enum class access : uint8_t { all, parent, self };
+	// all = public, parent = interface, self = private
+	enum class access : uint8_t { all, parent, self };
 
 	template <typename Type>
 	struct _Exporter {
-		Type value;
-		bool should_export{ true };
-
 		_Exporter() = default;
 
 		template <typename _Type>
-		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& _value) : value(_value) {}
+		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value) : m_value(value) {}
 
 		template <typename _Type>
-		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& _value, bool _should_export)
-		    : value(_value), should_export(_should_export) {}
+		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value, access access_level)
+		    : m_value(value), m_access_level(access_level) {}
+
+		Type& value() { return m_value; }
+		const Type& value() const { return m_value; }
+		access access_level() const { return m_access_level; }
+
+	private:
+		Type m_value;
+		access m_access_level{ access::all };
 	};
 
 	template <typename Type>
 	std::ostream& operator<<(std::ostream& os, const _Exporter<Type>& e) {
-		os << e.value;
+		os << e.value();
 		return os;
 	}
 
@@ -244,7 +246,7 @@ namespace _STD_BUILD {
 
 	using string_list = list_base<_Exporter<std::string>>;
 
-	////////////// Library //////////////
+	////////////// Package //////////////
 
 	struct package;
 	using package_list = list_base<package>;
@@ -273,9 +275,8 @@ namespace _STD_BUILD {
 	////////////// Compilation //////////////
 
 	using _Dependency_Vec = std::vector<package*>;
-	using _Dependency_Vec_Ref = _Dependency_Vec&;
 
-	inline void _add_packages(_Dependency_Vec_Ref dep, package& project) {
+	inline void _add_packages(_Dependency_Vec& dep, package& project) {
 		for (auto& pkg : project.pkgs) {
 			dep.push_back(&pkg);
 			_add_packages(dep, pkg);
@@ -312,7 +313,7 @@ namespace _STD_BUILD {
 
 		for (const auto& f : project.sources) {
 			std::stringstream output;
-			std::filesystem::path fp(f.value);
+			std::filesystem::path fp(f.value());
 			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
 
 			output << _STD_BUILD_COMPILER << " -c " << project.flags;
@@ -332,8 +333,9 @@ namespace _STD_BUILD {
 	inline Library create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - "
 		                           << (pkg.type == build_type::header_library ?
-                                           "header\n" :
-                                           (pkg.type == build_type::static_library ? "static" : "shared")));
+		                                   "header\n" :
+		                                   (pkg.type == build_type::static_library ? "static" : "shared")));
+
 		if (pkg.type != build_type::header_library) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
@@ -347,7 +349,7 @@ namespace _STD_BUILD {
 
 		// Transform library include directories by adding the project directory to the beginning.
 		for (auto& id : pkg.include_dirs) {
-			id = { (pkg.dir / id.value).string(), id.should_export };
+			id = { (pkg.dir / id.value()).string(), id.access_level() };
 		}
 
 		if (pkg.type != build_type::header_library) {
@@ -376,9 +378,6 @@ namespace _STD_BUILD {
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
-		} else {
-			// _STD_BUILD_OUTPUT('\n');
-			// _STD_BUILD_VERBOSE_OUTPUT("Header only.\n");
 		}
 		return Library(bin_dir, pkg.name, build_type::header_library);
 	}
@@ -400,10 +399,11 @@ namespace _STD_BUILD {
 
 		// Transform include & library directories by prepending the project's working directory
 		for (auto& id : project.include_dirs) {
-			id = (project.dir / id.value).string();
+			id = (project.dir / id.value()).string();
 		}
+
 		for (auto& ld : project.library_dirs) {
-			ld = (project.dir / ld.value).string();
+			ld = (project.dir / ld.value()).string();
 		}
 
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
@@ -422,13 +422,13 @@ namespace _STD_BUILD {
 
 				// Add this dependencies include/lib directories to our main project's include/lib directories
 				for (const auto& inc_dir : d->include_dirs) {
-					if (inc_dir.should_export) {
+					if (inc_dir.access_level() == access::all) {
 						project.include_dirs += inc_dir;
 					}
 				}
 
 				for (const auto& lib_dir : d->library_dirs) {
-					if (lib_dir.should_export) {
+					if (lib_dir.access_level() == access::all) {
 						project.library_dirs += lib_dir;
 					}
 				}
@@ -447,13 +447,12 @@ namespace _STD_BUILD {
 			}
 		}
 
-		// TODO: Export 'Library Directories' and 'Libraries' from packages
 		for (const auto& lib_dir : project.library_dirs) {
-			ls << "-L" << lib_dir.value << ' ';
+			ls << "-L" << lib_dir.value() << ' ';
 		}
 
 		for (const auto& lib : project.libraries) {
-			ls << "-l" << lib.value << ' ';
+			ls << "-l" << lib.value() << ' ';
 		}
 
 		auto objs = compile(project);
@@ -464,7 +463,6 @@ namespace _STD_BUILD {
 		       << ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		command(output.str());
-		// _STD_BUILD_OUTPUT("Output: " << (bin_dir / project.name).string() << '\n');
 		_STD_BUILD_VERBOSE_OUTPUT("output");
 		_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
 	}
