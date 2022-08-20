@@ -8,6 +8,7 @@
 struct project : std::build::package {
 	project() {
 		name = "project";
+		dir = "project";
 		flags = { "-std=c++20", "-DTEST_DEF" };
 		sources = { "src/main.cpp", "src/test.cpp" };
 		pkgs = { PKG1("packages/pkg1"), PKG2("packages/pkg2") };

@@ -1,4 +1,4 @@
-#include "../stdbuild"
+#include "../../../stdbuild"
 
 struct PKG1 : std::build::package {
 	PKG1(std::build::build_path _dir) {

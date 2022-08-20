@@ -264,11 +264,11 @@ namespace _STD_BUILD {
 
 	////////////// Library //////////////
 
-	struct Library {
+	struct _Library_Output {
 		std::filesystem::path location;
 		std::filesystem::path name;
 		build_type type{ build_type::static_library };
-		Library(std::filesystem::path _location, std::filesystem::path _name, build_type _type)
+		_Library_Output(std::filesystem::path _location, std::filesystem::path _name, build_type _type)
 		    : location(_location), name(_name), type(_type) {}
 	};
 
@@ -330,7 +330,7 @@ namespace _STD_BUILD {
 
 	////////////// Create Binaries //////////////
 
-	inline Library create_library(package& pkg) {
+	inline _Library_Output create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - "
 		                           << (pkg.type == build_type::header_library ?
 		                                   "header\n" :
@@ -373,13 +373,13 @@ namespace _STD_BUILD {
 					command(output.str());
 					_STD_BUILD_VERBOSE_OUTPUT("output");
 					_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
-					return Library(bin_dir, pkg.name, pkg.type);
+					return _Library_Output(bin_dir, pkg.name, pkg.type);
 				}
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
 		}
-		return Library(bin_dir, pkg.name, build_type::header_library);
+		return _Library_Output(bin_dir, pkg.name, build_type::header_library);
 	}
 
 	inline void create_executable(package& project) {
@@ -410,7 +410,7 @@ namespace _STD_BUILD {
 		auto dep = _build_dependency_vector(project);
 
 		// Create the libraries and add them to a vector for future iteration
-		std::vector<Library> libraries;
+		std::vector<_Library_Output> libraries;
 		if (dep.size() > 0) {
 			_STD_BUILD_OUTPUT("Building Dependencies: ");
 			for (const auto* p : dep) {
