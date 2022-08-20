@@ -1,4 +1,6 @@
-*/
 build.bat
 *.exe
 Todo.md
+.vscode/
+bin/
+build/
