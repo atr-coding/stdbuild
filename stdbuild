@@ -6,8 +6,9 @@
 #include <map>
 #include <sstream>
 #include <string>
-#include <string_view>
 #include <vector>
+#include <optional>
+#include <fstream>
 
 #if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
 #define _CONSTEXPR_20 constexpr
@@ -60,9 +61,11 @@ namespace _STD_BUILD {
 	struct _Options {
 		std::filesystem::path build_dir{ "build/" };
 		std::filesystem::path bin_dir{ "bin/" };
+		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
+		// std::string output_file{ "build/output" };
+		std::string error_file{ "build/error" };
 
 		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
-
 		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
 
 	private:
@@ -80,6 +83,10 @@ namespace _STD_BUILD {
 		}
 
 		options().build_dir = path;
+		// options().output_file = (path / "output").string();
+		options().error_file = (path / "error").string();
+		options().output_redirect_str = " 2>" + options().error_file;
+		//">" + options().output_file + " 2>" + options().error_file;
 	}
 
 	inline void set_bin_directory(std::filesystem::path path) {
@@ -93,11 +100,22 @@ namespace _STD_BUILD {
 	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
 
 	inline bool get_option(const std::string& opt) { return options().get(opt); }
+
+	////////////// Error Handling //////////////
+
+	void _print_error_log() {
+		std::ifstream error(options().error_file);
+		if (error) {
+			std::cout << error.rdbuf();
+			error.close();
+		}
+	}
+
 	////////////// Command //////////////
 
-	void command(const std::string& cmd) {
+	int command(const std::string& cmd) {
 		_STD_BUILD_VERBOSE_OUTPUT("Running command: " << cmd << '\n');
-		std::system(cmd.c_str());
+		return std::system((cmd + options().output_redirect_str).c_str());
 	}
 
 	////////////// version //////////////
@@ -300,13 +318,18 @@ namespace _STD_BUILD {
 		return dep;
 	}
 
-	inline string_list compile(const package& project) {
+	inline std::optional<string_list> compile(const package& project) {
 		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 		auto build_dir = options().build_dir / project.name;
 
 		// Create the desired build directory if it doesn't exist already.
 		if (!std::filesystem::exists(build_dir)) {
-			std::filesystem::create_directory(build_dir);
+			try {
+				std::filesystem::create_directory(build_dir);
+			} catch (std::exception& e) {
+				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
+				return std::nullopt;
+			}
 		}
 
 		string_list obj_files;
@@ -317,12 +340,19 @@ namespace _STD_BUILD {
 			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
 
 			output << _STD_BUILD_COMPILER << " -c " << project.flags;
+
 			for (const auto& i : project.include_dirs) {
 				output << "-I" << i << ' ';
 			}
+
 			output << project.dir / fp << " -o " << obj_path;
 			obj_files += std::move(obj_path.string());
-			command(output.str());
+			int ret = command(output.str());
+			if (ret) {
+				std::cout << "\nThere was an error during compilation:\n";
+				_print_error_log();
+				return std::nullopt;
+			}
 		}
 
 		return obj_files;
@@ -330,7 +360,7 @@ namespace _STD_BUILD {
 
 	////////////// Create Binaries //////////////
 
-	inline _Library_Output create_library(package& pkg) {
+	inline std::optional<_Library_Output> create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - "
 		                           << (pkg.type == build_type::header_library ?
 		                                   "header\n" :
@@ -356,21 +386,30 @@ namespace _STD_BUILD {
 			if (pkg.sources.size() > 0) {
 				auto objs = compile(pkg);
 
-				if (objs.size() > 0) {
+				if (!objs) {
+					return std::nullopt;
+				}
+
+				if (objs.value().size() > 0) {
 					auto file = std::filesystem::path("lib" + pkg.name);
 					_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 					std::stringstream output;
 
 					if (pkg.type == build_type::static_library) {
 						file.replace_extension(".a");
-						output << "ar rcs " << bin_dir / file << ' ' << objs;
+						output << "ar rcs " << bin_dir / file << ' ' << objs.value();
 					} else if (pkg.type == build_type::shared_library) {
 						file.replace_extension(".so");
-						output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << objs;
+						output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << objs.value();
 					}
 
 					_STD_BUILD_VERBOSE_OUTPUT('\n');
-					command(output.str());
+					int ret = command(output.str());
+					if (ret) {
+						std::cout << "\nThere was an error in creating the library:\n";
+						_print_error_log();
+						return std::nullopt;
+					}
 					_STD_BUILD_VERBOSE_OUTPUT("output");
 					_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
 					return _Library_Output(bin_dir, pkg.name, pkg.type);
@@ -382,11 +421,11 @@ namespace _STD_BUILD {
 		return _Library_Output(bin_dir, pkg.name, build_type::header_library);
 	}
 
-	inline void create_executable(package& project) {
+	inline bool create_executable(package& project) {
 		// Verify that we have source files to work with.
 		if (project.sources.size() == 0) {
 			_STD_BUILD_OUTPUT("No source files.\n");
-			return;
+			return false;
 		}
 
 		// Get the desired bin location
@@ -412,13 +451,17 @@ namespace _STD_BUILD {
 		// Create the libraries and add them to a vector for future iteration
 		std::vector<_Library_Output> libraries;
 		if (dep.size() > 0) {
-			_STD_BUILD_OUTPUT("Building Dependencies: ");
+			_STD_BUILD_VERBOSE_OUTPUT("Building Dependencies: ");
 			for (const auto* p : dep) {
-				_STD_BUILD_OUTPUT(p->name << ' ');
+				_STD_BUILD_VERBOSE_OUTPUT(p->name << ' ');
 			}
-			_STD_BUILD_OUTPUT('\n');
+			_STD_BUILD_VERBOSE_OUTPUT('\n');
 			for (package* d : dep) {
-				libraries.push_back(create_library(*d));
+				if (auto lib = create_library(*d)) {
+					libraries.push_back(lib.value());
+				} else {
+					return false;
+				}
 
 				// Add this dependencies include/lib directories to our main project's include/lib directories
 				for (const auto& inc_dir : d->include_dirs) {
@@ -457,14 +500,28 @@ namespace _STD_BUILD {
 
 		auto objs = compile(project);
 
+		if (!objs) {
+			return false;
+		}
+
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
-		output << _STD_BUILD_COMPILER << ' ' << objs << " -o " << (bin_dir / project.name) << ' ' << lids.str()
+		output << _STD_BUILD_COMPILER << ' ' << objs.value() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
 		       << ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		command(output.str());
 		_STD_BUILD_VERBOSE_OUTPUT("output");
 		_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
+#ifdef _STD_BUILD_RUN
+		_STD_BUILD_OUTPUT("Running...\n\n");
+		auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
+		if (std::filesystem::exists(exe)) {
+			command(exe.string());
+		} else {
+			_STD_BUILD_OUTPUT("Failed to find executable.\n");
+		}
+#endif
+		return true;
 	}
 
 } // namespace _STD_BUILD

@@ -11,7 +11,7 @@ struct project : std::build::package {
 		dir = "project";
 		flags = { "-std=c++20", "-DTEST_DEF" };
 		sources = { "src/main.cpp", "src/test.cpp" };
-		pkgs = { PKG1("packages/pkg1"), PKG2("packages/pkg2") };
+		pkgs = { PKG1("project/packages/pkg1"), PKG2("project/packages/pkg2") };
 	}
 };
 
