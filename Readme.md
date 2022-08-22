@@ -53,3 +53,11 @@ Below are some problems that arose during development, along with some possible 
 
 > Q: Do you need to downward propagate the need to compile packages with debugging flags or should the packages be responsible for checking/handling that?  
 > A:   
+
+
+## After thoughts
+> After initial prototyping, I decided the best course of action involving the design of the library's
+interface was to use inheritance instead of a POD/function design as it better captured the idea of
+what a package is while also allowing for a cleaner syntax and logic to be performed in the constructor.  
+Since the package's type doesn't actually matter and it simply gets decomposed into its base type (std::build::package) once it's passed into a 'create' method,
+I would like to look into the idea of allowing both designs to be used side-by-side if possible.

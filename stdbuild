@@ -43,7 +43,11 @@
 
 namespace _STD_BUILD {
 
-	enum class build_type : unsigned int { static_library, shared_library, header_library };
+	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
+
+	inline const library_type static_library = library_type::STATIC;
+	inline const library_type shared_library = library_type::SHARED;
+	inline const library_type header_library = library_type::HEADER;
 
 	using build_path = std::filesystem::path;
 
@@ -285,7 +289,7 @@ namespace _STD_BUILD {
 		version ver{ 0, 0, 0 };
 		std::string name{ "package" };
 		build_path dir{ "." };
-		build_type type{ build_type::static_library };
+		library_type type{ static_library };
 	};
 
 	////////////// Library //////////////
@@ -293,8 +297,8 @@ namespace _STD_BUILD {
 	struct _Library_Output {
 		std::filesystem::path location;
 		std::filesystem::path name;
-		build_type type{ build_type::static_library };
-		_Library_Output(std::filesystem::path _location, std::filesystem::path _name, build_type _type)
+		library_type type{ static_library };
+		_Library_Output(std::filesystem::path _location, std::filesystem::path _name, library_type _type)
 		    : location(_location), name(_name), type(_type) {}
 	};
 
@@ -370,11 +374,11 @@ namespace _STD_BUILD {
 
 	inline std::optional<_Library_Output> create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - "
-		                           << (pkg.type == build_type::header_library ?
+		                           << (pkg.type == header_library ?
 		                                   "header\n" :
-		                                   (pkg.type == build_type::static_library ? "static" : "shared")));
+		                                   (pkg.type == static_library ? "static" : "shared")));
 
-		if (pkg.type != build_type::header_library) {
+		if (pkg.type != header_library) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
@@ -390,7 +394,7 @@ namespace _STD_BUILD {
 			id = { (pkg.dir / id.value()).string(), id.access_level() };
 		}
 
-		if (pkg.type != build_type::header_library) {
+		if (pkg.type != header_library) {
 			if (pkg.sources.size() > 0) {
 				auto objs = compile(pkg);
 
@@ -403,10 +407,10 @@ namespace _STD_BUILD {
 					_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 					std::stringstream output;
 
-					if (pkg.type == build_type::static_library) {
+					if (pkg.type == static_library) {
 						file.replace_extension(".a");
 						output << "ar rcs " << bin_dir / file << ' ' << objs.value();
-					} else if (pkg.type == build_type::shared_library) {
+					} else if (pkg.type == shared_library) {
 						file.replace_extension(".so");
 						output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << objs.value();
 					}
@@ -426,7 +430,7 @@ namespace _STD_BUILD {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
 		}
-		return _Library_Output(bin_dir, pkg.name, build_type::header_library);
+		return _Library_Output(bin_dir, pkg.name, header_library);
 	}
 
 	inline bool create_executable(package& project) {
@@ -492,7 +496,7 @@ namespace _STD_BUILD {
 		std::stringstream lids; // Library Include Directory String
 		std::stringstream ls;   // Libraries String
 		for (const auto& lib : libraries) {
-			if (lib.type != build_type::header_library) {
+			if (lib.type != header_library) {
 				lids << "-L" << lib.location.string() << ' ';
 				ls << "-l" << lib.name.string() << ' ';
 			}
