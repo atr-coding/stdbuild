@@ -24,3 +24,5 @@
 6. <nc></nc> Begin work on cross platform and cross compiler support.  
 7. <nc></nc> Compilation parallelization.  
 8. <c></c> Automatically call exit(1) when create_executable fails and allow that to be disabled.
+9. <nc></nc> Rename std::build::build_path.  
+10. <nc></nc> Add help command to stdbuild

@@ -1,63 +1,101 @@
-# Preface
+# STDBUILD
 
-This document is an outline of my thought process during the development of the "stdbuild" library.
+Stdbuild is a prototype C++ build system meant to remove the hassle of using third-party systems and scripting languages by giving a common interface written in C++.
 
-# What does a build system in C++ need to do?
+Its goals are:
+- As close to standard compliant as possible.
+- Clean and easy to use scripting-like syntax.
+- Little to no loss in features when compared to third-party build systems.
+- Cross compiler support
+- Cross platform support
+- Multithreaded compilation
+- Package build caching
 
-A C++ build system needs to be able to bring together a collection of information such as:
+Examples:  
+This is a simple sample project consisting of the main project and one dependency called pkg1.  
+Given the following project structue:  
+```
+build.cpp
+include
+src
+│   main.cpp
+packages
+└───pkg1
+    │   build.h
+    └───include
+    │   |   pkg1.h
+    └───src
+        |   pkg1.cpp
+```
 
--   Source files
--   Flags
--   Include Directories
--   Library Directories
--   Libraries
+pkg1/build.h:
+```cpp
+#include <stdbuild>
 
-It also needs to be able to support a plethera of compilers and operating systems:
+struct pkg1 : std::build::package {
+	pkg1(std::build::build_path _dir) {
+		name = "pkg1";
+		dir = _dir;
+		flags = { "-std=c++20" };
+		sources = { "src/pkg1.cpp" };
+	}
+};
+```
+build.cpp:
+```cpp
+#include <stdbuild>
+// packages should always have their own build.h file
+#include "packages/pkg1/build.h"
 
--   MSVC, GCC, Clang
--   Windows, Linux
+struct project : std::build::package {
+	project() : package("project") {
+		name = "project";
+		flags = { "-std=c++20" };
+		sources = { "src/main.cpp" };
+		pkgs = { pkg1("packages/pkg1/") };
+	}
+};
 
-C++ applications often rely on dependencies, these dependencies are libraries that take on different forms:
+int main() {
+	auto proj = project();
+	std::build::create_executable(proj);
+}
+```
+If the stdbuild executable is in your PATH and you are in the root directory then simply calling
+```shell
+stdbuild
+```
+from the console will build the project.  
+You can also specify a different build file by calling:  
+```shell
+stdbuild my_build_script.cpp
+```
+Run the project after it finishes building by adding the -r or -run flags:
+```shell
+stdbuild build.cpp -r
+stdbuild build.cpp -run
+```
+Adding the -v or -verbose commands will give you more detailed information during the build process:
+```shell
+stdbuild build.cpp -v
+stdbuild build.cpp -verbose
+```
+A separate dependency list can also be made by creating a header file like so:
+```cpp
+#include <stdbuild>
+#include "pkg1/build.h"
+#include "pkg2/build.h"
+#include "pkg3/build.h"
 
--   Header only
--   Pre-compiled Static/Dynamic
--   Compile from source
+const std::build::package_list dependencies = {
+	pkg1("dir_to_pkg1"),
+	pkg2("dir_to_pkg2"),
+	pkg3("dir_to_pkg3")
+};
+```
+and adding it to your build.cpp file:
+```cpp
+#include "path_to_dependencies_header"
 
-# How do we go about doing this?
-
-Starting with dependencies, the information they produce is always the same as for the main project itself, include/library directories, flags, libraries, and dependencies of their own.
-
-These projects can be broken up into separate parts, and a build hierarchy can be established.
-
-Once a dependency is compiled, it needs to create a export structure that will pass the neccessary information up to the next step in the build system.
-
-# Problems
-
-Below are some problems that arose during development, along with some possible soultions to those problems and after thoughts about them. <br /><br />
-
-    How to avoid dependency recompilation?
-
-    	Possible solution:
-
-    	1. Recursively iterate through all the projects and
-    	   collect pointers to the individual dependencies
-    	   in a vector.
-    	2. Iterate through the vector, finding and remove
-    	   any duplicates in the process.
-    	3. Ierate through the vector again and compile
-    	   each dependency.
-
-    	Conclusion:
-
-# Questions
-
-> Q: Do you need to downward propagate the need to compile packages with debugging flags or should the packages be responsible for checking/handling that?  
-> A:   
-
-
-## After thoughts
-> After initial prototyping, I decided the best course of action involving the design of the library's
-interface was to use inheritance instead of a POD/function design as it better captured the idea of
-what a package is while also allowing for a cleaner syntax and logic to be performed in the constructor.  
-Since the package's type doesn't actually matter and it simply gets decomposed into its base type (std::build::package) once it's passed into a 'create' method,
-I would like to look into the idea of allowing both designs to be used side-by-side if possible.
+pkgs = { dependencies };
+```
