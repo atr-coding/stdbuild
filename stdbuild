@@ -41,6 +41,12 @@
 #error A supported compiler (msvc, g++, clang) must be used.
 #endif
 
+#ifdef _STD_BUILD_DONT_EXIT_ON_FAILURE
+#define _STD_BUILD_FAILURE_RETURN() return false
+#else
+#define _STD_BUILD_FAILURE_RETURN() std::exit(1); return false
+#endif
+
 namespace _STD_BUILD {
 
 	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
@@ -437,7 +443,7 @@ namespace _STD_BUILD {
 		// Verify that we have source files to work with.
 		if (project.sources.size() == 0) {
 			_STD_BUILD_OUTPUT("No source files.\n");
-			return false;
+			_STD_BUILD_FAILURE_RETURN();
 		}
 
 		// Get the desired bin location
@@ -472,7 +478,7 @@ namespace _STD_BUILD {
 				if (auto lib = create_library(*d)) {
 					libraries.push_back(lib.value());
 				} else {
-					return false;
+					_STD_BUILD_FAILURE_RETURN();
 				}
 
 				// Add this dependencies include/lib directories to our main project's include/lib directories
@@ -518,7 +524,7 @@ namespace _STD_BUILD {
 		auto objs = compile(project);
 
 		if (!objs) {
-			return false;
+			_STD_BUILD_FAILURE_RETURN();
 		}
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
@@ -530,7 +536,7 @@ namespace _STD_BUILD {
 		if (ret) {
 			_STD_BUILD_OUTPUT("\nThere was an error during linking:\n");
 			_print_error_log();
-			return false;
+			_STD_BUILD_FAILURE_RETURN();
 		} else {
 			_STD_BUILD_VERBOSE_OUTPUT("output");
 			_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
