@@ -48,3 +48,8 @@ Below are some problems that arose during development, along with some possible 
     	   each dependency.
 
     	Conclusion:
+
+# Questions
+
+> Q: Do you need to downward propagate the need to compile packages with debugging flags or should the packages be responsible for checking/handling that?  
+> A:   

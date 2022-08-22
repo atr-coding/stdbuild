@@ -45,7 +45,10 @@ int main(int argc, char** argv) {
 	int ret = std::system(ss.str().c_str());
 
 	if (std::filesystem::exists("stdbuild-autogen.exe") && ret == 0) {
-		std::system("stdbuild-autogen");
+		int ret = std::system("stdbuild-autogen");
+		if(ret) {
+			return 1; // cause stdbuild to fail if the build fails
+		}
 		std::system("del stdbuild-autogen.exe");
 	} else {
 		std::cout << "Failed to generate stdbuild-autogen.\n";

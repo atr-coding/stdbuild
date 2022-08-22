@@ -64,6 +64,7 @@ namespace _STD_BUILD {
 		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
 		// std::string output_file{ "build/output" };
 		std::string error_file{ "build/error" };
+		bool debug{ false };
 
 		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
 		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
@@ -100,6 +101,12 @@ namespace _STD_BUILD {
 	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
 
 	inline bool get_option(const std::string& opt) { return options().get(opt); }
+
+	inline void enable_debugging() { options().debug = true; }
+
+	inline void disable_debugging() { options().debug = false; }
+
+	inline bool debugging_enabled() { return options().debug; }
 
 	////////////// Error Handling //////////////
 
@@ -204,6 +211,7 @@ namespace _STD_BUILD {
 		_CONSTEXPR_20 std::vector<Type>& get() { return m_items; }
 		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_items; }
 		_CONSTEXPR_20 std::size_t size() const { return m_items.size(); }
+		_CONSTEXPR_20 void add(const Type& item) { m_items.push_back(item); }
 
 		// TODO: improve this
 		template <typename _Type = Type>
@@ -237,7 +245,7 @@ namespace _STD_BUILD {
 			return *this;
 		}
 
-		_CONSTEXPR_20 void operator+=(const Type& item) { m_items.push_back(item); }
+		_CONSTEXPR_20 void operator+=(const Type& item) { add(item); }
 
 		_CONSTEXPR_20 void operator+=(const list_base<Type>& list) {
 			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
@@ -325,7 +333,7 @@ namespace _STD_BUILD {
 		// Create the desired build directory if it doesn't exist already.
 		if (!std::filesystem::exists(build_dir)) {
 			try {
-				std::filesystem::create_directory(build_dir);
+				std::filesystem::create_directories(build_dir);
 			} catch (std::exception& e) {
 				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
 				return std::nullopt;
@@ -349,7 +357,7 @@ namespace _STD_BUILD {
 			obj_files += std::move(obj_path.string());
 			int ret = command(output.str());
 			if (ret) {
-				std::cout << "\nThere was an error during compilation:\n";
+				_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
 				_print_error_log();
 				return std::nullopt;
 			}
@@ -498,6 +506,11 @@ namespace _STD_BUILD {
 			ls << "-l" << lib.value() << ' ';
 		}
 
+		// Add debug flag
+		if (debugging_enabled()) {
+			project.flags += "-g";
+		}
+
 		auto objs = compile(project);
 
 		if (!objs) {
@@ -509,19 +522,25 @@ namespace _STD_BUILD {
 		output << _STD_BUILD_COMPILER << ' ' << objs.value() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
 		       << ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
-		command(output.str());
-		_STD_BUILD_VERBOSE_OUTPUT("output");
-		_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
-#ifdef _STD_BUILD_RUN
-		_STD_BUILD_OUTPUT("Running...\n\n");
-		auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
-		if (std::filesystem::exists(exe)) {
-			command(exe.string());
+		int ret = command(output.str());
+		if (ret) {
+			_STD_BUILD_OUTPUT("\nThere was an error during linking:\n");
+			_print_error_log();
+			return false;
 		} else {
-			_STD_BUILD_OUTPUT("Failed to find executable.\n");
-		}
+			_STD_BUILD_VERBOSE_OUTPUT("output");
+			_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
+#ifdef _STD_BUILD_RUN
+			_STD_BUILD_OUTPUT("Running...\n\n");
+			auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
+			if (std::filesystem::exists(exe)) {
+				command(exe.string());
+			} else {
+				_STD_BUILD_OUTPUT("Failed to find executable.\n");
+			}
 #endif
-		return true;
+			return true;
+		}
 	}
 
 } // namespace _STD_BUILD
