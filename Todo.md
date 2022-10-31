@@ -26,3 +26,4 @@
 8. <c></c> Automatically call exit(1) when create_executable fails and allow that to be disabled.
 9. <nc></nc> Rename std::build::build_path.  
 10. <nc></nc> Add help command to stdbuild
+11. <nc></nc> Create and cache an include hierarchy.

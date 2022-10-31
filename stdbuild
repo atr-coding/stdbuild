@@ -269,7 +269,7 @@ namespace _STD_BUILD {
 		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
 
 	private:
-		_CONSTEXPR_20 std::vector<Type> m_items;
+		std::vector<Type> m_items;
 	};
 
 	template <typename Type>

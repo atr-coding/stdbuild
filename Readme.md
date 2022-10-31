@@ -1,6 +1,7 @@
 # STDBUILD
 
-Stdbuild is a prototype C++ build system meant to remove the hassle of using third-party systems and scripting languages by giving a common interface written in C++.
+Stdbuild is a prototype build system for C++ meant to remove the hassle of using third-party systems and scripting languages by giving a common
+interface that allows you to write build scripts in C++.
 
 Its goals are:
 - As close to standard compliant as possible.
