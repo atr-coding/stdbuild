@@ -53,6 +53,77 @@
 
 namespace _STD_BUILD {
 
+	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
+
+	inline const library_type static_library = library_type::STATIC;
+	inline const library_type shared_library = library_type::SHARED;
+	inline const library_type header_library = library_type::HEADER;
+
+	using build_path = std::filesystem::path;
+
+	template <typename Type>
+	class list_base;
+
+	template <typename From, typename... To>
+	concept _Is_Convertable_Multi = (std::convertible_to<From, To> || ...);
+
+	template <typename T1, typename... FlagType>
+	concept _List_Test = (_Is_Convertable_Multi<FlagType, T1, list_base<T1>> && ...);
+
+	////////////// Options //////////////
+
+	struct _Options {
+		std::filesystem::path build_dir{ "build/" };
+		std::filesystem::path bin_dir{ "bin/" };
+		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
+		// std::string output_file{ "build/output" };
+		std::string error_file{ "build/error" };
+		bool debug{ false };
+
+		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
+		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
+
+	private:
+		std::map<std::string, bool> _user_defined_opts;
+	};
+
+	inline _Options& options() {
+		static _Options opt;
+		return opt;
+	}
+
+	inline void set_build_directory(std::filesystem::path path) {
+		if (!std::filesystem::exists(path)) {
+			std::filesystem::create_directory(path);
+		}
+
+		options().build_dir = path;
+		// options().output_file = (path / "output").string();
+		options().error_file = (path / "error").string();
+		options().output_redirect_str = " 2>" + options().error_file;
+		//">" + options().output_file + " 2>" + options().error_file;
+	}
+
+	inline void set_bin_directory(std::filesystem::path path) {
+		if (!std::filesystem::exists(path)) {
+			std::filesystem::create_directory(path);
+		}
+
+		options().bin_dir = path;
+	}
+
+	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
+
+	inline bool get_option(const std::string& opt) { return options().get(opt); }
+
+	inline void enable_debugging() { options().debug = true; }
+
+	inline void disable_debugging() { options().debug = false; }
+
+	inline bool debugging_enabled() { return options().debug; }
+
+	////////////// Cache //////////////
+
 	namespace __cache {
 		namespace serialization {
 
@@ -76,18 +147,17 @@ namespace _STD_BUILD {
 
 		}
 
-		namespace fs = std::filesystem;
-		using PathVector = std::vector<fs::path>;
+		using PathVector = std::vector<std::filesystem::path>;
 		const std::string cache_file_id{ "STDBUILD" };
 
 		struct lwt_file_block {
-			fs::path path;
+			std::filesystem::path path;
 			int64_t lwt{ 0 };
 			PathVector dependent_files;
 
 			lwt_file_block() = default;
-			lwt_file_block(const fs::path _path, int64_t _lwt) : path(_path), lwt(_lwt) {}
-			lwt_file_block(const fs::path _path, int64_t _lwt, const PathVector& _dependent_files)
+			lwt_file_block(const std::filesystem::path _path, int64_t _lwt) : path(_path), lwt(_lwt) {}
+			lwt_file_block(const std::filesystem::path _path, int64_t _lwt, const PathVector& _dependent_files)
 				: path(_path), lwt(_lwt), dependent_files(_dependent_files) {}
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
@@ -132,23 +202,25 @@ namespace _STD_BUILD {
 		inline int64_t get_lwt(const std::filesystem::path& file) noexcept {
 			const auto lwt = std::filesystem::last_write_time(file);
 
+			// This two methods of converting lwt to an integer produce very different results.
+			// The first one that only works after C++20 produces the correct result.
+			// The second that works on C++17 produces a passable result, but is negative
+			// and does not relate to the correct epoch time.
 			#if __cpp_lib_chrono >= 201907L
 			return std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(lwt));
 			#elif __cpp_lib_chrono >= 201611L
 			return std::chrono::duration_cast<std::chrono::seconds>(lwt.time_since_epoch()).count();
-			// the method below is inaccurate
-			// return std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::duration>(lwt - decltype(lwt)::clock::now() + std::chrono::system_clock::now()));
 			#else
 			#endif
 		}
 
-		std::optional<fs::path> find_file(const std::vector<fs::path>& include_directories, const fs::path& parent_dir, const fs::path& file) {
-			if (fs::exists(file)) { return file; }
-			if (fs::exists(parent_dir / file)) { return parent_dir / file; }
+		std::optional<std::filesystem::path> find_file(const std::vector<std::filesystem::path>& include_directories, const std::filesystem::path& parent_dir, const std::filesystem::path& file) {
+			if (std::filesystem::exists(file)) { return file; }
+			if (std::filesystem::exists(parent_dir / file)) { return parent_dir / file; }
 
 			for (const auto& dir : include_directories) {
 				const auto prepended_file_loc = dir / file;
-				if (fs::exists(prepended_file_loc)) { return prepended_file_loc; }
+				if (std::filesystem::exists(prepended_file_loc)) { return prepended_file_loc; }
 			}
 
 			return std::nullopt;
@@ -159,7 +231,7 @@ namespace _STD_BUILD {
 			std::vector<lwt_file_block> header_files;
 
 			void add_source_file(const std::string& file) {
-				source_files.push_back(lwt_file_block(fs::path(file), get_lwt(file)));
+				source_files.push_back(lwt_file_block(std::filesystem::path(file), get_lwt(file)));
 			}
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const cache_struct& cache) {
@@ -250,8 +322,8 @@ namespace _STD_BUILD {
 			return files_to_update;
 		}
 
-		PathVector get_includes_unsorted(const PathVector& include_directories, const fs::path& file_name) {
-			const fs::path parent_dir = fs::path(file_name).parent_path();
+		PathVector get_includes_unsorted(const PathVector& include_directories, const std::filesystem::path& file_name) {
+			const std::filesystem::path parent_dir = std::filesystem::path(file_name).parent_path();
 
 			PathVector includes;
 
@@ -271,9 +343,9 @@ namespace _STD_BUILD {
 
 						// check if the include file is part of the standard library or not
 						if (!is_standard_library_header(line)) {
-							if (auto file_path = find_file(include_directories, parent_dir, fs::path(line))) {
+							if (auto file_path = find_file(include_directories, parent_dir, std::filesystem::path(line))) {
 
-								const fs::path clean_path = file_path.value().lexically_normal();
+								const std::filesystem::path clean_path = file_path.value().lexically_normal();
 								includes.push_back(clean_path);
 
 								// Check if the dependency has dependencies.
@@ -293,7 +365,7 @@ namespace _STD_BUILD {
 			return includes;
 		}
 
-		PathVector get_includes(const PathVector& include_directories, const fs::path& file_name) {
+		PathVector get_includes(const PathVector& include_directories, const std::filesystem::path& file_name) {
 			// get list of includes for each cpp file that are unsorted and contains duplicates
 			auto includes = get_includes_unsorted(include_directories, file_name);
 			// Sort and remove duplicates
@@ -303,16 +375,16 @@ namespace _STD_BUILD {
 		}
 
 		cache_struct build(const PathVector& include_directories, const PathVector& cpp_files) {
-			std::unordered_map<fs::path, PathVector> cpp_file_dependencies;
+			std::unordered_map<std::filesystem::path, PathVector> cpp_file_dependencies;
 			for (const auto& file : cpp_files) {
-				if (fs::exists(file)) {
+				if (std::filesystem::exists(file)) {
 					cpp_file_dependencies[file.lexically_normal()] = get_includes(include_directories, file.lexically_normal());
 				} else {
 					std::cout << "File " << file << " does not exist.\n";
 				}
 			}
 
-			std::unordered_map<fs::path, PathVector> headers;
+			std::unordered_map<std::filesystem::path, PathVector> headers;
 
 			for (const auto& [cpp_file, dependencies] : cpp_file_dependencies) {
 				for (const auto& dep : dependencies) {
@@ -345,7 +417,7 @@ namespace _STD_BUILD {
 		bool initialize_cache(const PathVector& include_directories, const PathVector& cpp_files) {
 			//TODO: Verify that the build directory exists.
 			//TODO: Add the "build" folder to this.
-			if(!fs::exists("cache")) {
+			if (!std::filesystem::exists("cache")) {
 				//TODO:Add debug output here
 				auto cache = build(include_directories, cpp_files);
 				write_to_file("cache", cache);
@@ -356,75 +428,6 @@ namespace _STD_BUILD {
 			return false;
 		}
 	} // cache namespace
-
-	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
-
-	inline const library_type static_library = library_type::STATIC;
-	inline const library_type shared_library = library_type::SHARED;
-	inline const library_type header_library = library_type::HEADER;
-
-	using build_path = std::filesystem::path;
-
-	template <typename Type>
-	class list_base;
-
-	template <typename From, typename... To>
-	concept _Is_Convertable_Multi = (std::convertible_to<From, To> || ...);
-
-	template <typename T1, typename... FlagType>
-	concept _List_Test = (_Is_Convertable_Multi<FlagType, T1, list_base<T1>> && ...);
-
-	////////////// Options //////////////
-
-	struct _Options {
-		std::filesystem::path build_dir{ "build/" };
-		std::filesystem::path bin_dir{ "bin/" };
-		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
-		// std::string output_file{ "build/output" };
-		std::string error_file{ "build/error" };
-		bool debug{ false };
-
-		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
-		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
-
-	private:
-		std::map<std::string, bool> _user_defined_opts;
-	};
-
-	inline _Options& options() {
-		static _Options opt;
-		return opt;
-	}
-
-	inline void set_build_directory(std::filesystem::path path) {
-		if (!std::filesystem::exists(path)) {
-			std::filesystem::create_directory(path);
-		}
-
-		options().build_dir = path;
-		// options().output_file = (path / "output").string();
-		options().error_file = (path / "error").string();
-		options().output_redirect_str = " 2>" + options().error_file;
-		//">" + options().output_file + " 2>" + options().error_file;
-	}
-
-	inline void set_bin_directory(std::filesystem::path path) {
-		if (!std::filesystem::exists(path)) {
-			std::filesystem::create_directory(path);
-		}
-
-		options().bin_dir = path;
-	}
-
-	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
-
-	inline bool get_option(const std::string& opt) { return options().get(opt); }
-
-	inline void enable_debugging() { options().debug = true; }
-
-	inline void disable_debugging() { options().debug = false; }
-
-	inline bool debugging_enabled() { return options().debug; }
 
 	////////////// Error Handling //////////////
 
@@ -443,12 +446,12 @@ namespace _STD_BUILD {
 		return std::system((cmd + options().output_redirect_str).c_str());
 	}
 
-	////////////// version //////////////
+	////////////// Version //////////////
 
 	struct version {
 		_CONSTEXPR_17 version() = default;
 		_CONSTEXPR_17 version(uint32_t major, uint32_t minor, uint32_t patch)
-		    : m_major(major), m_minor(minor), m_patch(patch) {}
+			: m_major(major), m_minor(minor), m_patch(patch) {}
 		_CONSTEXPR_17 const uint32_t major() const { return m_major; }
 		_CONSTEXPR_17 const uint32_t minor() const { return m_minor; }
 		_CONSTEXPR_17 const uint32_t patch() const { return m_patch; }
@@ -486,11 +489,11 @@ namespace _STD_BUILD {
 		_Exporter() = default;
 
 		template <typename _Type>
-		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value) : m_value(value) {}
+			requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value) : m_value(value) {}
 
 		template <typename _Type>
-		requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value, access access_level)
-		    : m_value(value), m_access_level(access_level) {}
+			requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value, access access_level)
+		: m_value(value), m_access_level(access_level) {}
 
 		Type& value() { return m_value; }
 		const Type& value() const { return m_value; }
@@ -515,7 +518,7 @@ namespace _STD_BUILD {
 
 		template <typename _Type, typename Stream>
 		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>>
-		    : std::true_type {};
+			: std::true_type {};
 
 	public:
 		_CONSTEXPR_20 list_base() = default;
@@ -534,7 +537,7 @@ namespace _STD_BUILD {
 		// TODO: improve this
 		template <typename _Type = Type>
 		_CONSTEXPR_20 auto string(unsigned char delim = ' ') const
-		    -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
+			-> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
 			if (m_items.size() > 0) {
 				std::ostringstream ss;
 				for (const auto& item : m_items) {
@@ -554,7 +557,7 @@ namespace _STD_BUILD {
 				m_items = list.m_items;
 			}
 			return *this;
-		}
+			}
 
 		_CONSTEXPR_20 list_base<Type>& operator=(list_base<Type>&& list) {
 			if (this != &list) {
@@ -578,7 +581,7 @@ namespace _STD_BUILD {
 
 	private:
 		std::vector<Type> m_items;
-	};
+		};
 
 	template <typename Type>
 	std::ostream& operator<<(std::ostream& os, const list_base<Type>& list) {
@@ -613,7 +616,7 @@ namespace _STD_BUILD {
 		std::filesystem::path name;
 		library_type type{ static_library };
 		_Library_Output(std::filesystem::path _location, std::filesystem::path _name, library_type _type)
-		    : location(_location), name(_name), type(_type) {}
+			: location(_location), name(_name), type(_type) {}
 	};
 
 	////////////// Compilation //////////////
@@ -639,7 +642,7 @@ namespace _STD_BUILD {
 				}
 			}
 			return false;
-		});
+			});
 
 		return dep;
 	}
@@ -688,9 +691,9 @@ namespace _STD_BUILD {
 
 	inline std::optional<_Library_Output> create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - "
-		                           << (pkg.type == header_library ?
-		                                   "header\n" :
-		                                   (pkg.type == static_library ? "static" : "shared")));
+			<< (pkg.type == header_library ?
+				"header\n" :
+				(pkg.type == static_library ? "static" : "shared")));
 
 		if (pkg.type != header_library) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
@@ -838,7 +841,7 @@ namespace _STD_BUILD {
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
 		output << _STD_BUILD_COMPILER << ' ' << objs.value() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
-		       << ls.str();
+			<< ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		int ret = command(output.str());
 		if (ret) {
@@ -848,7 +851,7 @@ namespace _STD_BUILD {
 		} else {
 			_STD_BUILD_VERBOSE_OUTPUT("output");
 			_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
-#ifdef _STD_BUILD_RUN
+			#ifdef _STD_BUILD_RUN
 			_STD_BUILD_OUTPUT("Running...\n\n");
 			auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
 			if (std::filesystem::exists(exe)) {
@@ -856,9 +859,9 @@ namespace _STD_BUILD {
 			} else {
 				_STD_BUILD_OUTPUT("Failed to find executable.\n");
 			}
-#endif
+			#endif
 			return true;
 		}
 	}
 
-} // namespace _STD_BUILD
+	} // namespace _STD_BUILD
