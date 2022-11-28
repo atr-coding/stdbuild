@@ -27,3 +27,4 @@
 9. <nc></nc> Rename std::build::build_path.  
 10. <nc></nc> Add help command to stdbuild
 11. <nc></nc> Create and cache an include hierarchy.
+11. <nc></nc> Add helper functions for checking for things like which compiler is being used.

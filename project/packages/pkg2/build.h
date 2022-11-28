@@ -5,6 +5,6 @@ struct PKG2 : std::build::package {
 		name = "pkg2";
 		dir = _dir;
 		include_dirs += ".";
-		type = std::build::build_type::header_library;
+		type = std::build::header_library;
 	}
 };
