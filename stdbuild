@@ -47,7 +47,315 @@
 #define _STD_BUILD_FAILURE_RETURN() std::exit(1); return false
 #endif
 
+#if __cplusplus < 201703L
+#error C++17 is needed for filesystem support.
+#endif
+
 namespace _STD_BUILD {
+
+	namespace __cache {
+		namespace serialization {
+
+			void write_string(std::ofstream& stream, const std::string& str) {
+				const std::size_t size = str.size();
+				stream.write(reinterpret_cast<const char*>(&size), sizeof(std::size_t));
+				stream.write(str.data(), size);
+			}
+
+			void read_string(std::ifstream& stream, std::string& str) {
+				std::size_t size{ 0 };
+				stream.read(reinterpret_cast<char*>(&size), sizeof(std::size_t));
+				str.resize(size);
+				stream.read(str.data(), size);
+			}
+
+			void write_int64_t(std::ofstream& stream, const int64_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(int64_t)); }
+			void read_int64_t(std::ifstream& stream, int64_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(int64_t)); }
+			void write_size_t(std::ofstream& stream, const std::size_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(std::size_t)); }
+			void read_size_t(std::ifstream& stream, std::size_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(std::size_t)); }
+
+		}
+
+		namespace fs = std::filesystem;
+		using PathVector = std::vector<fs::path>;
+		const std::string cache_file_id{ "STDBUILD" };
+
+		struct lwt_file_block {
+			fs::path path;
+			int64_t lwt{ 0 };
+			PathVector dependent_files;
+
+			lwt_file_block() = default;
+			lwt_file_block(const fs::path _path, int64_t _lwt) : path(_path), lwt(_lwt) {}
+			lwt_file_block(const fs::path _path, int64_t _lwt, const PathVector& _dependent_files)
+				: path(_path), lwt(_lwt), dependent_files(_dependent_files) {}
+
+			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
+				serialization::write_string(stream, block.path.string());
+				serialization::write_int64_t(stream, block.lwt);
+
+				// write the source files that depend on this header
+				serialization::write_size_t(stream, block.dependent_files.size());
+
+				// iterate through list of dependent files and write their paths out
+				for (const auto& source : block.dependent_files) {
+					serialization::write_string(stream, source.string());
+				}
+
+				return stream;
+			}
+
+			friend std::ifstream& operator>>(std::ifstream& stream, lwt_file_block& block) {
+				// read the path
+				std::string path;
+				serialization::read_string(stream, path);
+				block.path = { path };
+				// read the "last write time"
+				serialization::read_int64_t(stream, block.lwt);
+
+				// read in the number of source files for this header
+				std::size_t source_file_count{ 0 };
+				serialization::read_size_t(stream, source_file_count);
+				block.dependent_files.reserve(source_file_count);
+
+				for (std::size_t i = 0; i < source_file_count; ++i) {
+					std::string source_path;
+					serialization::read_string(stream, source_path);
+					block.dependent_files.push_back({ source_path });
+				}
+
+				return stream;
+			}
+		};
+
+		// Returns the file's last write time since epoch in seconds
+		inline int64_t get_lwt(const std::filesystem::path& file) noexcept {
+			const auto lwt = std::filesystem::last_write_time(file);
+
+			#if __cpp_lib_chrono >= 201907L
+			return std::chrono::system_clock::to_time_t(std::chrono::clock_cast<std::chrono::system_clock>(lwt));
+			#elif __cpp_lib_chrono >= 201611L
+			return std::chrono::duration_cast<std::chrono::seconds>(lwt.time_since_epoch()).count();
+			// the method below is inaccurate
+			// return std::chrono::system_clock::to_time_t(std::chrono::time_point_cast<std::chrono::system_clock::duration>(lwt - decltype(lwt)::clock::now() + std::chrono::system_clock::now()));
+			#else
+			#endif
+		}
+
+		std::optional<fs::path> find_file(const std::vector<fs::path>& include_directories, const fs::path& parent_dir, const fs::path& file) {
+			if (fs::exists(file)) { return file; }
+			if (fs::exists(parent_dir / file)) { return parent_dir / file; }
+
+			for (const auto& dir : include_directories) {
+				const auto prepended_file_loc = dir / file;
+				if (fs::exists(prepended_file_loc)) { return prepended_file_loc; }
+			}
+
+			return std::nullopt;
+		};
+
+		struct cache_struct {
+			std::vector<lwt_file_block> source_files;
+			std::vector<lwt_file_block> header_files;
+
+			void add_source_file(const std::string& file) {
+				source_files.push_back(lwt_file_block(fs::path(file), get_lwt(file)));
+			}
+
+			friend std::ofstream& operator<<(std::ofstream& stream, const cache_struct& cache) {
+
+				serialization::write_size_t(stream, cache.source_files.size());
+				for (const auto& source_file : cache.source_files) { stream << source_file; }
+				serialization::write_size_t(stream, cache.header_files.size());
+				for (const auto& header_file : cache.header_files) { stream << header_file; }
+
+				return stream;
+			}
+
+			friend std::ifstream& operator>>(std::ifstream& stream, cache_struct& cache) {
+
+				// Read in the source files
+				std::size_t source_file_count{ 0 };
+				serialization::read_size_t(stream, source_file_count);
+				cache.source_files.reserve(source_file_count);
+				for (std::size_t i = 0; i < source_file_count; ++i) {
+					lwt_file_block temp;
+					stream >> temp;
+					cache.source_files.push_back(std::move(temp));
+				}
+
+				// Read in the header files
+				std::size_t header_file_count{ 0 };
+				serialization::read_size_t(stream, header_file_count);
+				cache.header_files.reserve(header_file_count);
+				for (std::size_t i = 0; i < header_file_count; ++i) {
+					lwt_file_block temp;
+					stream >> temp;
+					cache.header_files.push_back(std::move(temp));
+				}
+
+				return stream;
+			}
+		};
+
+		void write_to_file(const std::string& cache_file_name, const cache_struct& cache) {
+			std::ofstream cache_file(cache_file_name, std::ios::binary);
+			if (cache_file.is_open()) {
+				// Write file identification code.
+				serialization::write_string(cache_file, cache_file_id);
+
+				cache_file << cache;
+
+				cache_file.close();
+			}
+		}
+
+		bool load_from_file(const std::string& cache_file_name, cache_struct& cache) {
+			std::ifstream cache_file(cache_file_name, std::ios::binary);
+			if (cache_file.is_open()) {
+
+				// Read and verify identification code.
+				std::string id;
+				serialization::read_string(cache_file, id);
+				if (id != cache_file_id) {
+					return false;
+				}
+
+				cache_file >> cache;
+
+				return true;
+				cache_file.close();
+			}
+			return false;
+		}
+
+		PathVector get_modified_files(const cache_struct& cache) {
+			PathVector files_to_update;
+
+			for (const auto& source_file : cache.source_files) {
+				if (get_lwt(source_file.path) > source_file.lwt) {
+					files_to_update.push_back(source_file.path);
+				}
+			}
+
+			for (const auto& header_file : cache.header_files) {
+				if (get_lwt(header_file.path) > header_file.lwt && header_file.dependent_files.size() > 0) {
+					files_to_update.insert(files_to_update.end(), header_file.dependent_files.begin(), header_file.dependent_files.end());
+				}
+			}
+
+			// Sort and remove any duplicates
+			std::sort(files_to_update.begin(), files_to_update.end());
+			files_to_update.erase(std::unique(files_to_update.begin(), files_to_update.end()), files_to_update.end());
+			return files_to_update;
+		}
+
+		PathVector get_includes_unsorted(const PathVector& include_directories, const fs::path& file_name) {
+			const fs::path parent_dir = fs::path(file_name).parent_path();
+
+			PathVector includes;
+
+			const auto is_standard_library_header = [&](const std::string& file) -> bool {
+				return (std::find(std_header_files.begin(), std_header_files.end(), file) != std_header_files.end());
+			};
+
+			std::ifstream file(file_name);
+			if (file.is_open()) {
+
+				std::string line;
+				while (std::getline(file, line)) {
+
+					if (line.starts_with("#include")) {
+						line = line.substr(8 + (line.at(8) == ' ' ? 1 : 0)); // remove "#include", and if it exists, remove whitespace after it
+						line = line.substr(1, line.size() - 2); // remove the <> or ""
+
+						// check if the include file is part of the standard library or not
+						if (!is_standard_library_header(line)) {
+							if (auto file_path = find_file(include_directories, parent_dir, fs::path(line))) {
+
+								const fs::path clean_path = file_path.value().lexically_normal();
+								includes.push_back(clean_path);
+
+								// Check if the dependency has dependencies.
+								for (const auto& sub_include_path : get_includes_unsorted(include_directories, clean_path)) {
+									includes.push_back(sub_include_path);
+								}
+
+							}
+						}
+					}
+
+				}
+
+				file.close();
+			}
+
+			return includes;
+		}
+
+		PathVector get_includes(const PathVector& include_directories, const fs::path& file_name) {
+			// get list of includes for each cpp file that are unsorted and contains duplicates
+			auto includes = get_includes_unsorted(include_directories, file_name);
+			// Sort and remove duplicates
+			std::sort(includes.begin(), includes.end());
+			includes.erase(std::unique(includes.begin(), includes.end()), includes.end());
+			return includes;
+		}
+
+		cache_struct build(const PathVector& include_directories, const PathVector& cpp_files) {
+			std::unordered_map<fs::path, PathVector> cpp_file_dependencies;
+			for (const auto& file : cpp_files) {
+				if (fs::exists(file)) {
+					cpp_file_dependencies[file.lexically_normal()] = get_includes(include_directories, file.lexically_normal());
+				} else {
+					std::cout << "File " << file << " does not exist.\n";
+				}
+			}
+
+			std::unordered_map<fs::path, PathVector> headers;
+
+			for (const auto& [cpp_file, dependencies] : cpp_file_dependencies) {
+				for (const auto& dep : dependencies) {
+					auto& hv = headers[dep];
+					if (std::find(hv.begin(), hv.end(), cpp_file) == hv.end()) {
+						hv.push_back(cpp_file);
+					}
+				}
+			}
+
+			cache_struct cache;
+
+			for (const auto& source : cpp_files) {
+				cache.source_files.push_back({ source.lexically_normal() , get_lwt(source) });
+			}
+
+			for (const auto& header : headers) {
+				cache.header_files.push_back({ header.first, get_lwt(header.first), header.second });
+			}
+
+			return cache;
+		}
+
+		// The initialize_cache method is to be called at the start of every build.
+		// It needs to check if a cache file already exists, and if not, then take the
+		// include directories/cpp_files, and build the cache for the first time with them.
+		// If the function returns true, then the cache exists and we can load it, and check for file changes.
+		//TODO: A cache needs to be built for every package, so this needs to be called at the top of every create_library/create_executable.
+		//TODO: Look into putting every packages cache file into the same "build" folder.
+		bool initialize_cache(const PathVector& include_directories, const PathVector& cpp_files) {
+			//TODO: Verify that the build directory exists.
+			//TODO: Add the "build" folder to this.
+			if(!fs::exists("cache")) {
+				//TODO:Add debug output here
+				auto cache = build(include_directories, cpp_files);
+				write_to_file("cache", cache);
+				return false;
+			} else {
+				return true;
+			}
+			return false;
+		}
+	} // cache namespace
 
 	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
 
