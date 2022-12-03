@@ -1,17 +1,7 @@
 <style type="text/css">
-	c {
-		color:#00FF00;
-	}
-
-	c::before {
-		content: "✓";
-		/* ✓🗹 */
-	}
-
-	nc::before {
-		content: "☐";
-		/* ☐ */
-	}
+	c { color:#00FF00; }
+	c::before { content: "✓"; }
+	nc::before { content: "☐"; }
 </style>
 
 # To-do
@@ -28,3 +18,4 @@
 10. <nc></nc> Add help command to stdbuild
 11. <nc></nc> Create and cache an include hierarchy.
 11. <nc></nc> Add helper functions for checking for things like which compiler is being used.
+12. <nc></nc> Remove constexpr support.
