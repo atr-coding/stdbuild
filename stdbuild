@@ -11,6 +11,7 @@
 #include <fstream>
 #include <algorithm>
 #include <unordered_map>
+#include <type_traits>
 
 #if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
 #define _CONSTEXPR_20 constexpr
@@ -191,9 +192,15 @@ namespace _STD_BUILD {
 
 	public:
 		_CONSTEXPR_20 list_base() = default;
+		list_base(const Type&) = delete;
 		_CONSTEXPR_20 list_base(const list_base<Type>& list) : m_items(list.m_items) {}
-		_CONSTEXPR_20 list_base(std::initializer_list<Type> strings) {
-			m_items.insert(m_items.end(), strings.begin(), strings.end());
+		_CONSTEXPR_20 list_base(list_base<Type>&& list) noexcept {
+			if (this != &list) {
+				m_items = std::move(list.m_items);
+			}
+		}
+		_CONSTEXPR_20 list_base(const std::initializer_list<Type>& elements) {
+			m_items.insert(m_items.end(), elements.begin(), elements.end());
 		}
 
 		/// Misc Functions ///
@@ -201,6 +208,7 @@ namespace _STD_BUILD {
 		_CONSTEXPR_20 std::vector<Type>& get() { return m_items; }
 		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_items; }
 		_CONSTEXPR_20 std::size_t size() const { return m_items.size(); }
+		_CONSTEXPR_20 std::size_t size() { return m_items.size(); }
 		_CONSTEXPR_20 void add(const Type& item) { m_items.push_back(item); }
 
 		// TODO: improve this
@@ -248,17 +256,16 @@ namespace _STD_BUILD {
 		_CONSTEXPR_20 auto end() { return m_items.end(); }
 		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
 
+		/// Stream Functions ///
+		friend std::ostream& operator<<(std::ostream& stream, const list_base<Type>& list) {
+			for (const auto& item : list.get()) {
+				stream << item << ' ';
+			}
+			return stream;
+		}
 	private:
 		std::vector<Type> m_items;
 	};
-
-	template <typename Type>
-	std::ostream& operator<<(std::ostream& os, const list_base<Type>& list) {
-		for (const auto& item : list.get()) {
-			os << item << ' ';
-		}
-		return os;
-	}
 
 	template<typename Type>
 	struct ListElement {
@@ -267,6 +274,48 @@ namespace _STD_BUILD {
 
 		ListElement(const Type& _value) : value(_value) {}
 		ListElement(const Type& _value, access _access_level) : value(_value), access_level(_access_level) {}
+
+		template <typename Type2> requires std::is_convertible_v<Type2, Type>
+		ListElement(const Type2& _value) : value(_value) {}
+
+		template <typename Type2> requires std::is_convertible_v<Type2, Type>
+		ListElement(const Type2& _value, access _access_level) : value(_value), access_level(_access_level) {}
+
+		bool operator<(const ListElement<Type>& other) {
+			return value < other.value;
+		}
+
+		bool operator==(const ListElement<Type>& other) {
+			return (value == other.value && access_level == other.access_level);
+		}
+
+		friend std::ostream& operator<<(std::ostream& stream, const ListElement& element) {
+			stream << element.value << ' ';
+			return stream;
+		}
+	};
+
+	template<typename Type = std::filesystem::path>
+	struct PathListElement {
+		Type value;
+		access access_level{ access::self };
+
+		PathListElement(const Type& _value) : value(_value) {}
+		PathListElement(const std::string& _value) : value(_value) {}
+		PathListElement(const Type& _value, access _access_level) : value(_value), access_level(_access_level) {}
+
+		bool operator<(const PathListElement<Type>& other) {
+			return value < other.value;
+		}
+
+		bool operator==(const PathListElement<Type>& other) {
+			return (value == other.value && access_level == other.access_level);
+		}
+
+		friend std::ostream& operator<<(std::ostream& stream, const PathListElement& element) {
+			stream << element.value << ' ';
+			return stream;
+		}
 	};
 
 	//TODO: Change this to path_list
@@ -334,11 +383,11 @@ namespace _STD_BUILD {
 		struct lwt_file_block {
 			std::filesystem::path path;
 			int64_t lwt{ 0 };
-			string_list dependent_files;
+			path_list dependent_files;
 
 			lwt_file_block() = default;
 			lwt_file_block(const std::filesystem::path _path, int64_t _lwt) : path(_path), lwt(_lwt) {}
-			lwt_file_block(const std::filesystem::path _path, int64_t _lwt, const string_list& _dependent_files)
+			lwt_file_block(const std::filesystem::path _path, int64_t _lwt, const path_list& _dependent_files)
 				: path(_path), lwt(_lwt), dependent_files(_dependent_files) {}
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
@@ -350,7 +399,7 @@ namespace _STD_BUILD {
 
 				// iterate through list of dependent files and write their paths out
 				for (const auto& source : block.dependent_files) {
-					serialization::write_string(stream, source.value);
+					serialization::write_string(stream, source.value.string());
 				}
 
 				return stream;
@@ -395,7 +444,7 @@ namespace _STD_BUILD {
 			#endif
 		}
 
-		std::optional<std::filesystem::path> find_file(const string_list& include_directories, const std::filesystem::path& parent_dir, const std::filesystem::path& file) {
+		std::optional<std::filesystem::path> find_file(const path_list& include_directories, const std::filesystem::path& parent_dir, const std::filesystem::path& file) {
 			if (std::filesystem::exists(file)) { return file; }
 			if (std::filesystem::exists(parent_dir / file)) { return parent_dir / file; }
 
@@ -408,7 +457,7 @@ namespace _STD_BUILD {
 		};
 
 		struct cache_struct {
-			string_list source_file_list;
+			path_list source_file_list;
 			std::vector<lwt_file_block> source_files;
 			std::vector<lwt_file_block> header_files;
 
@@ -483,13 +532,13 @@ namespace _STD_BUILD {
 			return false;
 		}
 
-		string_list get_modified_files(const cache_struct& cache) {
-			string_list files_to_update;
+		path_list get_modified_files(const cache_struct& cache) {
+			path_list files_to_update;
 			auto& data = files_to_update.get();
 
 			for (const auto& source_file : cache.source_files) {
 				if (get_lwt(source_file.path) > source_file.lwt) {
-					data.push_back(source_file.path.string());
+					data.push_back(source_file.path);
 				}
 			}
 
@@ -505,10 +554,10 @@ namespace _STD_BUILD {
 			return files_to_update;
 		}
 
-		string_list get_includes_unsorted(const string_list& include_directories, const std::filesystem::path& file_name) {
-			const std::filesystem::path parent_dir = std::filesystem::path(file_name).parent_path();
+		path_list get_includes_unsorted(const path_list& include_directories, const std::filesystem::path& file_name) {
+			const std::filesystem::path parent_dir = file_name.parent_path();
 
-			string_list includes;
+			path_list includes;
 
 			const auto is_standard_library_header = [&](const std::string& file) -> bool {
 				return (std::find(std_header_files.begin(), std_header_files.end(), file) != std_header_files.end());
@@ -529,7 +578,7 @@ namespace _STD_BUILD {
 							if (auto file_path = find_file(include_directories, parent_dir, std::filesystem::path(line))) {
 
 								const std::filesystem::path clean_path = file_path.value().lexically_normal();
-								includes.get().push_back(clean_path.string());
+								includes.get().push_back(clean_path);
 
 								// Check if the dependency has dependencies.
 								for (const auto& sub_include_path : get_includes_unsorted(include_directories, clean_path)) {
@@ -548,7 +597,7 @@ namespace _STD_BUILD {
 			return includes;
 		}
 
-		string_list get_includes(const string_list& include_directories, const std::filesystem::path& file_name) {
+		path_list get_includes(const path_list& include_directories, const std::filesystem::path& file_name) {
 			// get list of includes for each cpp file that are unsorted and contains duplicates
 			auto unsorted_includes = std::move(get_includes_unsorted(include_directories, file_name));
 			auto& data = unsorted_includes.get();
@@ -559,19 +608,18 @@ namespace _STD_BUILD {
 			return unsorted_includes;
 		}
 
-		cache_struct build(const string_list& include_directories, const string_list& cpp_files) {
-			std::unordered_map<std::filesystem::path, string_list> cpp_file_dependencies;
+		cache_struct build(const path_list& include_directories, const path_list& cpp_files) {
+			std::unordered_map<std::filesystem::path, path_list> cpp_file_dependencies;
 			for (const auto& file : cpp_files) {
-				const std::filesystem::path& file_value{ file.value };
-				if (std::filesystem::exists(file_value)) {
-					const auto lexically_normal_file_path = file_value.lexically_normal();
+				if (std::filesystem::exists(file.value)) {
+					const auto lexically_normal_file_path = file.value.lexically_normal();
 					cpp_file_dependencies[lexically_normal_file_path] = get_includes(include_directories, lexically_normal_file_path);
 				} else {
 					std::cout << "File " << file.value << " does not exist.\n";
 				}
 			}
 
-			std::unordered_map<std::filesystem::path, string_list> headers;
+			std::unordered_map<std::filesystem::path, path_list> headers;
 
 			for (const auto& [cpp_file, dependencies] : cpp_file_dependencies) {
 				for (const auto& dep : dependencies) {
@@ -585,7 +633,7 @@ namespace _STD_BUILD {
 			cache_struct cache;
 
 			for (const auto& source : cpp_files) {
-				cache.source_files.push_back({ source.value().lexically_normal() , get_lwt(source.value()) });
+				cache.source_files.push_back({ source.value.lexically_normal() , get_lwt(source.value) });
 			}
 
 			for (const auto& header : headers) {
@@ -601,7 +649,7 @@ namespace _STD_BUILD {
 		// If the function returns true, then the cache exists and we can load it.
 		// If it returns false, the cache was just created.
 		//TODO: A cache needs to be built for every package, so this needs to be called at the top of every create_library/create_executable.
-		bool initialize_cache(const std::filesystem::path& cache_file_path, const string_list& include_directories, const string_list& cpp_files) {
+		bool initialize_cache(const std::filesystem::path& cache_file_path, const path_list& include_directories, const path_list& cpp_files) {
 			if (!std::filesystem::exists(cache_file_path)) {
 				//TODO:Add debug output here
 				auto cache = build(include_directories, cpp_files);
@@ -630,7 +678,7 @@ namespace _STD_BUILD {
 		// and uses them to check if any changes to the number of cpp files has been made and find any files that have been updated
 		// and need to be recompiled. It compiles all the changes into a single string_list and returns it to the compile method.
 		// The compile method will only use the cpp files that are returned from here when recompiling.
-		std::optional<string_list> test_cache(const std::filesystem::path& cache_file_path, const string_list& include_directories, string_list& cpp_files) {
+		std::optional<path_list> test_cache(const std::filesystem::path& cache_file_path, const path_list& include_directories, path_list& cpp_files) {
 			if (!initialize_cache(cache_file_path, include_directories, cpp_files)) {
 				// Cache was just created, so all the cpp files need to be compiled and we can just return the cpp file list that was given.
 				return std::move(cpp_files);
@@ -641,8 +689,8 @@ namespace _STD_BUILD {
 			if (load_from_file(cache_file_path, cache)) {
 				// get the raw cpp_files list from cache
 				// test the given cpp_files list with the one loaded from the cache and find the differences
-				string_list additions, subtractions;
-				find_differences(cpp_files.begin(), cpp_files.end(), cache.source_files.begin(), cache.source_files.end(), std::back_inserter(additions), std::back_inserter(subtractions));
+				path_list additions, subtractions;
+				find_differences(cpp_files.begin(), cpp_files.end(), cache.source_file_list.begin(), cache.source_file_list.end(), std::back_inserter(additions.get()), std::back_inserter(subtractions.get()));
 				auto modded_files = get_modified_files(cache);
 				modded_files += additions;
 				std::cout << "Modded files:\n";
@@ -664,7 +712,8 @@ namespace _STD_BUILD {
 	struct package {
 		package() = default;
 		explicit package(const std::string& _name) : name(_name) {}
-		string_list include_dirs, library_dirs, flags, sources, libraries;
+		string_list flags, libraries;
+		path_list include_dirs, library_dirs, sources;
 		package_list pkgs;
 		version ver{ 0, 0, 0 };
 		std::string name{ "package" };
@@ -728,7 +777,7 @@ namespace _STD_BUILD {
 
 		for (const auto& f : project.sources) {
 			std::stringstream output;
-			std::filesystem::path fp(f.value());
+			std::filesystem::path fp(f.value);
 			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
 
 			output << _STD_BUILD_COMPILER << " -c " << project.flags;
@@ -738,7 +787,7 @@ namespace _STD_BUILD {
 			}
 
 			output << project.dir / fp << " -o " << obj_path;
-			obj_files += std::move(obj_path.string());
+			obj_files += obj_path.string();
 			int ret = command(output.str());
 			if (ret) {
 				_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
@@ -771,7 +820,7 @@ namespace _STD_BUILD {
 
 		// Transform library include directories by adding the project directory to the beginning.
 		for (auto& id : pkg.include_dirs) {
-			id = { (pkg.dir / id.value()).string(), id.access_level() };
+			id = { (pkg.dir / id.value).string(), id.access_level };
 		}
 
 		if (pkg.type != header_library) {
@@ -831,11 +880,11 @@ namespace _STD_BUILD {
 
 		// Transform include & library directories by prepending the project's working directory
 		for (auto& id : project.include_dirs) {
-			id = (project.dir / id.value()).string();
+			id = (project.dir / id.value);
 		}
 
 		for (auto& ld : project.library_dirs) {
-			ld = (project.dir / ld.value()).string();
+			ld = (project.dir / ld.value);
 		}
 
 		// Load Cache
@@ -863,14 +912,14 @@ namespace _STD_BUILD {
 
 				// Add this dependencies include/lib directories to our main project's include/lib directories
 				for (const auto& inc_dir : d->include_dirs) {
-					if (inc_dir.access_level() == access::all) {
-						project.include_dirs += inc_dir;
+					if (inc_dir.access_level == access::all) {
+						project.include_dirs.add(inc_dir);
 					}
 				}
 
 				for (const auto& lib_dir : d->library_dirs) {
-					if (lib_dir.access_level() == access::all) {
-						project.library_dirs += lib_dir;
+					if (lib_dir.access_level == access::all) {
+						project.library_dirs.add(lib_dir);
 					}
 				}
 			}
@@ -889,11 +938,11 @@ namespace _STD_BUILD {
 		}
 
 		for (const auto& lib_dir : project.library_dirs) {
-			ls << "-L" << lib_dir.value() << ' ';
+			ls << "-L" << lib_dir.value << ' ';
 		}
 
 		for (const auto& lib : project.libraries) {
-			ls << "-l" << lib.value() << ' ';
+			ls << "-l" << lib.value << ' ';
 		}
 
 		// Add debug flag

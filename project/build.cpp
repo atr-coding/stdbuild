@@ -1,22 +1,20 @@
 // This is an example project used to testing and demonstration purposes.
 // It is likely to change heavily over time.
 
-// #include "packages/pkg1/build.h"
-// #include "packages/pkg2/build.h"
 #include "../stdbuild"
-#include "packages/packages.h"
+// #include "packages/packages.h"
 
-const std::build::string_list warning_flags = {
-	"-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wpedantic", "-Werror"
-};
+// const std::build::string_list warning_flags = {
+// 	"-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wpedantic", "-Werror"
+// };
 
 struct project : std::build::package {
 	project() {
 		name = "project";
 		flags = { "-std=c++20", "-DTEST_DEF", "-fanalyzer" };
-		flags += warning_flags;
+		// flags += warning_flags;
 		sources = { "src/main.cpp", "src/test.cpp" };
-		pkgs = { packages };
+		// pkgs = { packages };
 	}
 };
 
