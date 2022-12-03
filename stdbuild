@@ -775,6 +775,32 @@ namespace _STD_BUILD {
 		return dep;
 	}
 
+	bool _verify_bin_and_build_directories(const std::string& project_name) {
+		const auto& bin_dir = options().bin_dir;
+		const auto& build_dir = options().build_dir / project_name;
+		// Create the desired bin directory if it doesn't exist already.
+		if (!std::filesystem::exists(bin_dir)) {
+			try {
+				std::filesystem::create_directories(bin_dir);
+			} catch (std::exception& e) {
+				_STD_BUILD_OUTPUT("Failed to create directory " << bin_dir.string() << '\n');
+				_STD_BUILD_FAILURE_RETURN();
+			}
+		}
+
+		// Create the desired build directory if it doesn't exist already.
+		if (!std::filesystem::exists(build_dir)) {
+			try {
+				std::filesystem::create_directories(build_dir);
+			} catch (std::exception& e) {
+				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
+				_STD_BUILD_FAILURE_RETURN();
+			}
+		}
+
+		return true;
+	}
+
 	bool compile(const std::filesystem::path& build_dir, const std::filesystem::path& directory, const string_list& flags,
 		const path_list& include_dirs,
 		const path_list& cpp_files) {
@@ -797,10 +823,8 @@ namespace _STD_BUILD {
 					return false;
 				}
 			}
-
-			return true;
 		}
-		return false;
+		return true;
 	}
 
 	// bool link(const std::string& binary_name, const std::filesystem::path& build_dir, const path_list& obj_files, const path_list& library_dirs, const string_list& libraries) {
@@ -832,12 +856,11 @@ namespace _STD_BUILD {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
+		if (!_verify_bin_and_build_directories(pkg.name)) { return std::nullopt; };
 		auto bin_dir = options().bin_dir;
+		const auto build_dir = options().build_dir;
+		const auto project_build_dir = build_dir / pkg.name;
 
-		// Create the desired bin directory if it doesn't exist already.
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
-		}
 
 		// Transform library include directories by adding the project directory to the beginning.
 		for (auto& id : pkg.include_dirs) {
@@ -846,36 +869,43 @@ namespace _STD_BUILD {
 
 		if (pkg.type != header_library) {
 			if (pkg.sources.size() > 0) {
-				auto objs = compile(pkg);
-
-				if (!objs) {
+				// auto objs = compile(pkg);
+				auto comp = compile(project_build_dir, pkg.dir, pkg.flags, pkg.include_dirs, pkg.sources);
+				if (!comp) {
 					return std::nullopt;
 				}
 
-				if (objs.value().size() > 0) {
-					auto file = std::filesystem::path("lib" + pkg.name);
-					_STD_BUILD_VERBOSE_OUTPUT("Linking...");
-					std::stringstream output;
+				// if (!objs) {
+				// 	return std::nullopt;
+				// }
 
-					if (pkg.type == static_library) {
-						file.replace_extension(".a");
-						output << "ar rcs " << bin_dir / file << ' ' << objs.value();
-					} else if (pkg.type == shared_library) {
-						file.replace_extension(".so");
-						output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << objs.value();
-					}
-
-					_STD_BUILD_VERBOSE_OUTPUT('\n');
-					int ret = command(output.str());
-					if (ret) {
-						std::cout << "\nThere was an error in creating the library:\n";
-						_print_error_log();
-						return std::nullopt;
-					}
-					_STD_BUILD_VERBOSE_OUTPUT("output");
-					_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
-					return _Library_Output(bin_dir, pkg.name, pkg.type);
+				// Convert all source file names into corresponding object file names.
+				std::stringstream obj_files;
+				for (const auto& source : pkg.sources) {
+					obj_files << (project_build_dir / (source.value.stem().replace_extension(".o"))).string() << ' ';
 				}
+
+				auto file = std::filesystem::path("lib" + pkg.name);
+				_STD_BUILD_VERBOSE_OUTPUT("Linking...");
+				std::stringstream output;
+
+				if (pkg.type == static_library) {
+					file.replace_extension(".a");
+					output << "ar rcs " << bin_dir / file << ' ' << obj_files.str();
+				} else if (pkg.type == shared_library) {
+					file.replace_extension(".so");
+					output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << obj_files.str();
+				}
+
+				_STD_BUILD_VERBOSE_OUTPUT('\n');
+				if (command(output.str())) {
+					std::cout << "\nThere was an error in creating the library:\n";
+					_print_error_log();
+					return std::nullopt;
+				}
+				_STD_BUILD_VERBOSE_OUTPUT("output");
+				_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
+				return _Library_Output(bin_dir, pkg.name, pkg.type);
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
@@ -890,25 +920,10 @@ namespace _STD_BUILD {
 			_STD_BUILD_FAILURE_RETURN();
 		}
 
-		// Get the desired bin location
+		if (!_verify_bin_and_build_directories(project.name)) { return false; };
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto project_build_dir = build_dir / project.name;
-
-		// Create the desired bin directory if it doesn't exist already.
-		if (!std::filesystem::exists(bin_dir)) {
-			std::filesystem::create_directory(bin_dir);
-		}
-
-		// Create the desired build directory if it doesn't exist already.
-		if (!std::filesystem::exists(build_dir)) {
-			try {
-				std::filesystem::create_directories(build_dir);
-			} catch (std::exception& e) {
-				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
-				_STD_BUILD_FAILURE_RETURN();
-			}
-		}
 
 		// Transform include & library directories by prepending the project's working directory
 		for (auto& id : project.include_dirs) {
@@ -921,17 +936,15 @@ namespace _STD_BUILD {
 
 		// Load Cache
 		_STD_BUILD_OUTPUT("Loading cache: ");
-		const auto cache_path = build_dir / (project.name + "_cache");
+		const auto cache_path = build_dir / project.name / "cache";
 		const auto files_to_recompile = __cache::test_cache(cache_path, project.include_dirs, project.sources);
 		if (files_to_recompile) {
 			if (files_to_recompile.value().size() == 0) {
 				//TODO: if no changes have been made to the source files, check if the binary is missing, and if so, 
 				// skip compilation and go straight to linking
 				_STD_BUILD_OUTPUT("No changes have been made.\n");
-				return false;
 			}
 		}
-
 
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
 		auto dep = _build_dependency_vector(project);
@@ -977,11 +990,11 @@ namespace _STD_BUILD {
 		auto comp = compile(project_build_dir, project.dir, project.flags, project.include_dirs, files_to_recompile.value());
 		if (!comp) { _STD_BUILD_FAILURE_RETURN(); }
 
-		std::stringstream lids; // Library Include Directory String
+		std::stringstream lds; // Library Directory String
 		std::stringstream ls;   // Libraries String
 		for (const auto& lib : libraries) {
 			if (lib.type != header_library) {
-				lids << "-L" << lib.location.string() << ' ';
+				lds << "-L" << lib.location.string() << ' ';
 				ls << "-l" << lib.name.string() << ' ';
 			}
 		}
@@ -1002,11 +1015,10 @@ namespace _STD_BUILD {
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
-		output << _STD_BUILD_COMPILER << ' ' << obj_files.str() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
+		output << _STD_BUILD_COMPILER << ' ' << obj_files.str() << " -o " << (bin_dir / project.name) << ' ' << lds.str()
 			<< ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
-		int ret = command(output.str());
-		if (ret) {
+		if (command(output.str())) {
 			_STD_BUILD_OUTPUT("\nThere was an error during linking:\n");
 			_print_error_log();
 			_STD_BUILD_FAILURE_RETURN();
