@@ -180,40 +180,6 @@ namespace _STD_BUILD {
 	enum class access : uint8_t { all, parent, self };
 
 	template <typename Type>
-	struct _Exporter {
-		_Exporter() = default;
-
-		template <typename _Type>
-			requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value) : m_value(value) {}
-
-		template <typename _Type>
-			requires std::is_convertible_v<_Type, Type> _Exporter(const _Type& value, access access_level)
-		: m_value(value), m_access_level(access_level) {}
-
-		Type& value() { return m_value; }
-		const Type& value() const { return m_value; }
-		access access_level() const { return m_access_level; }
-
-		bool operator<(const _Exporter<Type>& other) const {
-			return m_value < other.m_value;
-		}
-
-		bool operator==(const _Exporter<Type>& other) const {
-			return (m_value == other.m_value && m_access_level == other.m_access_level);
-		}
-
-	private:
-		Type m_value;
-		access m_access_level{ access::self };
-	};
-
-	template <typename Type>
-	std::ostream& operator<<(std::ostream& os, const _Exporter<Type>& e) {
-		os << e.value();
-		return os;
-	}
-
-	template <typename Type>
 	class list_base {
 	private:
 		template <typename _Type, typename Stream, typename = void>
