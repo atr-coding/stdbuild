@@ -457,7 +457,7 @@ namespace _STD_BUILD {
 		};
 
 		struct cache_struct {
-			path_list source_file_list;
+			path_list cpp_files;
 			std::vector<lwt_file_block> source_files;
 			std::vector<lwt_file_block> header_files;
 
@@ -467,8 +467,13 @@ namespace _STD_BUILD {
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const cache_struct& cache) {
 
+				// Write cpp_files
+				serialization::write_size_t(stream, cache.cpp_files.size());
+				for (const auto& cpp_file : cache.cpp_files) { stream << cpp_file.value; }
+				// Write source file last write times
 				serialization::write_size_t(stream, cache.source_files.size());
 				for (const auto& source_file : cache.source_files) { stream << source_file; }
+				// Write header file last write times
 				serialization::write_size_t(stream, cache.header_files.size());
 				for (const auto& header_file : cache.header_files) { stream << header_file; }
 
@@ -476,6 +481,17 @@ namespace _STD_BUILD {
 			}
 
 			friend std::ifstream& operator>>(std::ifstream& stream, cache_struct& cache) {
+
+				// Read in the cpp files
+				std::size_t cpp_file_count{ 0 };
+				serialization::read_size_t(stream, cpp_file_count);
+				auto& cpp_file_data = cache.cpp_files.get();
+				cpp_file_data.reserve(cpp_file_count);
+				for (std::size_t i = 0; i < cpp_file_count; ++i) {
+					std::filesystem::path temp;
+					stream >> temp;
+					cpp_file_data.push_back(std::move(temp));
+				}
 
 				// Read in the source files
 				std::size_t source_file_count{ 0 };
@@ -632,6 +648,8 @@ namespace _STD_BUILD {
 
 			cache_struct cache;
 
+			cache.cpp_files = cpp_files;
+
 			for (const auto& source : cpp_files) {
 				cache.source_files.push_back({ source.value.lexically_normal() , get_lwt(source.value) });
 			}
@@ -650,10 +668,12 @@ namespace _STD_BUILD {
 		// If it returns false, the cache was just created.
 		//TODO: A cache needs to be built for every package, so this needs to be called at the top of every create_library/create_executable.
 		bool initialize_cache(const std::filesystem::path& cache_file_path, const path_list& include_directories, const path_list& cpp_files) {
-			if (!std::filesystem::exists(cache_file_path)) {
+			if (std::filesystem::exists(cache_file_path) == false) {
 				//TODO:Add debug output here
+				_STD_BUILD_OUTPUT("file not found, initializing...");
 				auto cache = build(include_directories, cpp_files);
 				write_to_file(cache_file_path, cache);
+				_STD_BUILD_OUTPUT("complete.\n");
 				return false;
 			}
 			return true;
@@ -679,24 +699,20 @@ namespace _STD_BUILD {
 		// and need to be recompiled. It compiles all the changes into a single string_list and returns it to the compile method.
 		// The compile method will only use the cpp files that are returned from here when recompiling.
 		std::optional<path_list> test_cache(const std::filesystem::path& cache_file_path, const path_list& include_directories, path_list& cpp_files) {
-			if (!initialize_cache(cache_file_path, include_directories, cpp_files)) {
+			if (initialize_cache(cache_file_path, include_directories, cpp_files) == false) {
 				// Cache was just created, so all the cpp files need to be compiled and we can just return the cpp file list that was given.
-				return std::move(cpp_files);
+				return cpp_files;
 			}
 
 			// initialize_cache returned true which means that the cache already existed
 			cache_struct cache;
 			if (load_from_file(cache_file_path, cache)) {
-				// get the raw cpp_files list from cache
-				// test the given cpp_files list with the one loaded from the cache and find the differences
-				path_list additions, subtractions;
-				find_differences(cpp_files.begin(), cpp_files.end(), cache.source_file_list.begin(), cache.source_file_list.end(), std::back_inserter(additions.get()), std::back_inserter(subtractions.get()));
+				_STD_BUILD_OUTPUT("complete.\n")
+					path_list additions, subtractions;
+				find_differences(cpp_files.begin(), cpp_files.end(), cache.cpp_files.begin(), cache.cpp_files.end(), std::back_inserter(additions.get()), std::back_inserter(subtractions.get()));
 				auto modded_files = get_modified_files(cache);
 				modded_files += additions;
-				std::cout << "Modded files:\n";
-				for (const auto& file : modded_files) {
-					std::cout << file << '\n';
-				}
+				return modded_files;
 			}
 
 			// Failed to load the file
@@ -763,16 +779,6 @@ namespace _STD_BUILD {
 		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 		auto build_dir = options().build_dir / project.name;
 
-		// Create the desired build directory if it doesn't exist already.
-		if (!std::filesystem::exists(build_dir)) {
-			try {
-				std::filesystem::create_directories(build_dir);
-			} catch (std::exception& e) {
-				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
-				return std::nullopt;
-			}
-		}
-
 		string_list obj_files;
 
 		for (const auto& f : project.sources) {
@@ -798,6 +804,47 @@ namespace _STD_BUILD {
 
 		return obj_files;
 	}
+
+	bool compile(const std::filesystem::path& build_dir, const std::filesystem::path& directory, const string_list& flags,
+		const path_list& include_dirs,
+		const path_list& cpp_files) {
+		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
+
+		for (const auto& f : cpp_files) {
+			std::stringstream output;
+
+			output << _STD_BUILD_COMPILER << " -c " << flags;
+
+			for (const auto& i : include_dirs) {
+				output << "-I" << i << ' ';
+			}
+
+			output << directory / f.value << " -o " << (build_dir / f.value.stem()).replace_extension(".o");
+			if (command(output.str())) {
+				_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
+				_print_error_log();
+				return false;
+			}
+		}
+		return true;
+	}
+
+	// bool link(const std::string& binary_name, const std::filesystem::path& build_dir, const path_list& obj_files, const path_list& library_dirs, const string_list& libraries) {
+	// 	_STD_BUILD_VERBOSE_OUTPUT("Linking...");
+	// 	const std::string binary_path = (options().bin_dir / binary_name).string();
+	// 	std::stringstream output;
+	// 	output << _STD_BUILD_COMPILER << ' ' << obj_files.value() << " -o " << binary_path << ' ' << lids.str()
+	// 		<< ls.str();
+	// 	_STD_BUILD_VERBOSE_OUTPUT('\n');
+	// 	if (command(output.str())) {
+	// 		_STD_BUILD_OUTPUT("\nThere was an error during linking:\n");
+	// 		_print_error_log();
+	// 		_STD_BUILD_FAILURE_RETURN();
+	// 	} else {
+	// 		_STD_BUILD_VERBOSE_OUTPUT("output");
+	// 		_STD_BUILD_OUTPUT(" - " << binary_path << '\n');
+	// 	}
+	// }
 
 	////////////// Create Binaries //////////////
 
@@ -872,10 +919,21 @@ namespace _STD_BUILD {
 		// Get the desired bin location
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
+		const auto project_build_dir = build_dir / project.name;
 
 		// Create the desired bin directory if it doesn't exist already.
 		if (!std::filesystem::exists(bin_dir)) {
 			std::filesystem::create_directory(bin_dir);
+		}
+
+		// Create the desired build directory if it doesn't exist already.
+		if (!std::filesystem::exists(build_dir)) {
+			try {
+				std::filesystem::create_directories(build_dir);
+			} catch (std::exception& e) {
+				_STD_BUILD_OUTPUT("Failed to create directory " << build_dir.string() << '\n');
+				_STD_BUILD_FAILURE_RETURN();
+			}
 		}
 
 		// Transform include & library directories by prepending the project's working directory
@@ -888,9 +946,18 @@ namespace _STD_BUILD {
 		}
 
 		// Load Cache
-		_STD_BUILD_OUTPUT("Loading cache...");
+		_STD_BUILD_OUTPUT("Loading cache: ");
 		const auto cache_path = build_dir / (project.name + "_cache");
-		__cache::test_cache(cache_path, project.include_dirs, project.sources);
+		const auto files_to_recompile = __cache::test_cache(cache_path, project.include_dirs, project.sources);
+		if (files_to_recompile) {
+			if (files_to_recompile.value().size() == 0) {
+				//TODO: if no changes have been made to the source files, check if the binary is missing, and if so, 
+				// skip compilation and go straight to linking
+				_STD_BUILD_OUTPUT("No changes have been made.\n");
+				return false;
+			}
+		}
+
 
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
 		auto dep = _build_dependency_vector(project);
@@ -928,6 +995,11 @@ namespace _STD_BUILD {
 		_STD_BUILD_OUTPUT(project.name << " - executable");
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 
+		// Add debug flag
+		if (debugging_enabled()) {
+			project.flags += "-g";
+		}
+
 		std::stringstream lids; // Library Include Directory String
 		std::stringstream ls;   // Libraries String
 		for (const auto& lib : libraries) {
@@ -945,20 +1017,18 @@ namespace _STD_BUILD {
 			ls << "-l" << lib.value << ' ';
 		}
 
-		// Add debug flag
-		if (debugging_enabled()) {
-			project.flags += "-g";
-		}
+		auto comp = compile(project_build_dir, project.dir, project.flags, project.include_dirs, files_to_recompile.value());
+		if (!comp) { _STD_BUILD_FAILURE_RETURN(); }
 
-		auto objs = compile(project);
-
-		if (!objs) {
-			_STD_BUILD_FAILURE_RETURN();
+		// Convert all source file names into corresponding object file names.
+		std::stringstream obj_files;
+		for (const auto& source : project.sources) {
+			obj_files << (project_build_dir / (source.value.stem().replace_extension(".o"))).string() << ' ';
 		}
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
-		output << _STD_BUILD_COMPILER << ' ' << objs.value() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
+		output << _STD_BUILD_COMPILER << ' ' << obj_files.str() << " -o " << (bin_dir / project.name) << ' ' << lids.str()
 			<< ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		int ret = command(output.str());
@@ -969,17 +1039,17 @@ namespace _STD_BUILD {
 		} else {
 			_STD_BUILD_VERBOSE_OUTPUT("output");
 			_STD_BUILD_OUTPUT(" - " << (bin_dir / project.name).string() << '\n');
-			#ifdef _STD_BUILD_RUN
-			_STD_BUILD_OUTPUT("Running...\n\n");
-			auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
-			if (std::filesystem::exists(exe)) {
-				command(exe.string());
-			} else {
-				_STD_BUILD_OUTPUT("Failed to find executable.\n");
-			}
-			#endif
-			return true;
 		}
+		#ifdef _STD_BUILD_RUN
+		_STD_BUILD_OUTPUT("Running...\n\n");
+		auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
+		if (std::filesystem::exists(exe)) {
+			command(exe.string());
+		} else {
+			_STD_BUILD_OUTPUT("Failed to find executable.\n");
+		}
+		#endif
+		return true;
 	}
 
 } // namespace _STD_BUILD
