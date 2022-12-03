@@ -775,58 +775,32 @@ namespace _STD_BUILD {
 		return dep;
 	}
 
-	inline std::optional<string_list> compile(const package& project) {
-		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
-		auto build_dir = options().build_dir / project.name;
-
-		string_list obj_files;
-
-		for (const auto& f : project.sources) {
-			std::stringstream output;
-			std::filesystem::path fp(f.value);
-			auto obj_path = (build_dir / fp.stem()).replace_extension(".o");
-
-			output << _STD_BUILD_COMPILER << " -c " << project.flags;
-
-			for (const auto& i : project.include_dirs) {
-				output << "-I" << i << ' ';
-			}
-
-			output << project.dir / fp << " -o " << obj_path;
-			obj_files += obj_path.string();
-			int ret = command(output.str());
-			if (ret) {
-				_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
-				_print_error_log();
-				return std::nullopt;
-			}
-		}
-
-		return obj_files;
-	}
-
 	bool compile(const std::filesystem::path& build_dir, const std::filesystem::path& directory, const string_list& flags,
 		const path_list& include_dirs,
 		const path_list& cpp_files) {
-		_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
+		if (cpp_files.size() > 0) {
+			_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 
-		for (const auto& f : cpp_files) {
-			std::stringstream output;
+			for (const auto& f : cpp_files) {
+				std::stringstream output;
 
-			output << _STD_BUILD_COMPILER << " -c " << flags;
+				output << _STD_BUILD_COMPILER << " -c " << flags;
 
-			for (const auto& i : include_dirs) {
-				output << "-I" << i << ' ';
+				for (const auto& i : include_dirs) {
+					output << "-I" << i << ' ';
+				}
+
+				output << directory / f.value << " -o " << (build_dir / f.value.stem()).replace_extension(".o");
+				if (command(output.str())) {
+					_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
+					_print_error_log();
+					return false;
+				}
 			}
 
-			output << directory / f.value << " -o " << (build_dir / f.value.stem()).replace_extension(".o");
-			if (command(output.str())) {
-				_STD_BUILD_OUTPUT("\nThere was an error during compilation:\n");
-				_print_error_log();
-				return false;
-			}
+			return true;
 		}
-		return true;
+		return false;
 	}
 
 	// bool link(const std::string& binary_name, const std::filesystem::path& build_dir, const path_list& obj_files, const path_list& library_dirs, const string_list& libraries) {
@@ -1000,6 +974,9 @@ namespace _STD_BUILD {
 			project.flags += "-g";
 		}
 
+		auto comp = compile(project_build_dir, project.dir, project.flags, project.include_dirs, files_to_recompile.value());
+		if (!comp) { _STD_BUILD_FAILURE_RETURN(); }
+
 		std::stringstream lids; // Library Include Directory String
 		std::stringstream ls;   // Libraries String
 		for (const auto& lib : libraries) {
@@ -1016,9 +993,6 @@ namespace _STD_BUILD {
 		for (const auto& lib : project.libraries) {
 			ls << "-l" << lib.value << ' ';
 		}
-
-		auto comp = compile(project_build_dir, project.dir, project.flags, project.include_dirs, files_to_recompile.value());
-		if (!comp) { _STD_BUILD_FAILURE_RETURN(); }
 
 		// Convert all source file names into corresponding object file names.
 		std::stringstream obj_files;
