@@ -295,29 +295,6 @@ namespace _STD_BUILD {
 		}
 	};
 
-	template<typename Type = std::filesystem::path>
-	struct PathListElement {
-		Type value;
-		access access_level{ access::self };
-
-		PathListElement(const Type& _value) : value(_value) {}
-		PathListElement(const std::string& _value) : value(_value) {}
-		PathListElement(const Type& _value, access _access_level) : value(_value), access_level(_access_level) {}
-
-		bool operator<(const PathListElement<Type>& other) {
-			return value < other.value;
-		}
-
-		bool operator==(const PathListElement<Type>& other) {
-			return (value == other.value && access_level == other.access_level);
-		}
-
-		friend std::ostream& operator<<(std::ostream& stream, const PathListElement& element) {
-			stream << element.value << ' ';
-			return stream;
-		}
-	};
-
 	//TODO: Change this to path_list
 	using string_list = list_base<ListElement<std::string>>;
 	using path_list = list_base<ListElement<std::filesystem::path>>;
