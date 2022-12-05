@@ -528,7 +528,7 @@ namespace _STD_BUILD {
 			path_list added, removed, modified;
 		};
 
-		struct cache_struct {
+		struct cache_storage {
 			std::vector<lwt_file_block> source_files;
 			std::vector<lwt_file_block> header_files;
 			cache_changes changes;
@@ -650,7 +650,7 @@ namespace _STD_BUILD {
 				check_for_file_changes();
 			}
 
-			friend std::ofstream& operator<<(std::ofstream& stream, const cache_struct& cache) {
+			friend std::ofstream& operator<<(std::ofstream& stream, const cache_storage& cache) {
 				// Write source file last write times
 				serialization::write_size_t(stream, cache.source_files.size());
 				for (const auto& source_file : cache.source_files) { stream << source_file; }
@@ -661,7 +661,7 @@ namespace _STD_BUILD {
 				return stream;
 			}
 
-			friend std::ifstream& operator>>(std::ifstream& stream, cache_struct& cache) {
+			friend std::ifstream& operator>>(std::ifstream& stream, cache_storage& cache) {
 				// Read in the source files
 				std::size_t source_file_count{ 0 };
 				serialization::read_size_t(stream, source_file_count);
@@ -685,7 +685,7 @@ namespace _STD_BUILD {
 				return stream;
 			}
 
-			friend std::ostream& operator<<(std::ostream& stream, const cache_struct& cache) {
+			friend std::ostream& operator<<(std::ostream& stream, const cache_storage& cache) {
 				stream << "\n------------------------------\n";
 				stream << "Cache:\n";
 				stream << "Source files:\n";
@@ -722,7 +722,7 @@ namespace _STD_BUILD {
 			}
 		};
 
-		cache_struct build(const path_list& include_directories, const path_list& cpp_files) {
+		cache_storage build(const path_list& include_directories, const path_list& cpp_files) {
 			std::unordered_map<fs::path, path_list> cpp_file_dependencies;
 			for (const auto& file : cpp_files) {
 				// Iterate through every file and verify it exists.
@@ -750,7 +750,7 @@ namespace _STD_BUILD {
 				}
 			}
 
-			cache_struct cache;
+			cache_storage cache;
 
 			for (const auto& source : cpp_files) {
 				cache.source_files.push_back({ source.value.lexically_normal() });
@@ -774,7 +774,7 @@ namespace _STD_BUILD {
 		// If it returns false, the cache was just created and all the cpp files need to be compiled.
 		//TODO: A cache needs to be built for every package, so this needs to be called at the top of every create_library/create_executable.
 		// Return: true if cache was initialized, false is a cache already exists
-		std::pair<bool, cache_struct> initialize_cache(const fs::path& cache_file_path, const path_list& include_directories, const path_list& cpp_files) {
+		std::pair<bool, cache_storage> initialize_cache(const fs::path& cache_file_path, const path_list& include_directories, const path_list& cpp_files) {
 			if (cache_exists(cache_file_path) == false) {
 				_STD_BUILD_OUTPUT("file not found, creating new cache...");
 				auto cache = build(include_directories, cpp_files);
@@ -1015,7 +1015,7 @@ namespace _STD_BUILD {
 		// Load Cache
 		_STD_BUILD_OUTPUT("Loading cache: ");
 		const auto cache_path = build_dir / project.name / "cache";
-		__cache::cache_struct cache;
+		__cache::cache_storage cache;
 		path_list files_to_compile;
 
 		const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, project.include_dirs, project.sources);
