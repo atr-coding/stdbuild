@@ -53,7 +53,6 @@
 
 #define _STD_BUILD_FAILURE() std::exit(1);
 
-#define _STD_BUILD_REBUILD_CACHE_ON_LOAD_FAILURE false
 //TODO: Disable cache flag. (maybe a option)
 
 #if __cplusplus < 201703L
@@ -1027,11 +1026,6 @@ namespace _STD_BUILD {
 			if (!cache.load_from_file(cache_path)) {
 				files_to_compile = project.sources;
 				_STD_BUILD_OUTPUT("failed to load file.\n");
-				if (_STD_BUILD_REBUILD_CACHE_ON_LOAD_FAILURE) {
-					if (__cache::cache_exists(cache_path) == false) {
-						//TODO: Implement this. (Should this feature even exists? Probably not.)
-					}
-				}
 			} else {
 				cache.test(project.sources);
 				files_to_compile += cache.changes.added;
