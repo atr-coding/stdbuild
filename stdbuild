@@ -524,11 +524,10 @@ namespace _STD_BUILD {
 			return unsorted_includes;
 		}
 
-		struct cache_changes {
-			path_list added, removed, modified;
-		};
-
 		struct cache_storage {
+		private:
+			struct cache_changes { path_list added, removed, modified; };
+		public:
 			std::vector<lwt_file_block> source_files;
 			std::vector<lwt_file_block> header_files;
 			cache_changes changes;
@@ -991,8 +990,8 @@ namespace _STD_BUILD {
 			_STD_BUILD_FAILURE_RETURN();
 		}
 
-		for(const auto& source : project.sources) {
-			if(fs::exists(source.value) == false) {
+		for (const auto& source : project.sources) {
+			if (fs::exists(source.value) == false) {
 				_STD_BUILD_OUTPUT("Source file: " << source.value.string() << " could not be found.\n");
 				_STD_BUILD_FAILURE_RETURN();
 			}
@@ -1126,11 +1125,11 @@ namespace _STD_BUILD {
 		auto exe = (bin_dir / project.name).replace_extension(".exe").make_preferred();
 		if (fs::exists(exe)) {
 			command(exe.string());
-		} else {
+	} else {
 			_STD_BUILD_OUTPUT("Failed to find executable.\n");
 		}
 		#endif
 		return true;
-	}
+}
 
 } // namespace _STD_BUILD
