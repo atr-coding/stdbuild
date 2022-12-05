@@ -397,7 +397,7 @@ namespace _STD_BUILD {
 			lwt_file_block(const fs::path _path, int64_t _lwt, const path_list& _dependent_files)
 				: path(_path), lwt(_lwt), dependent_files(_dependent_files) {}
 
-			void reset_lwt() { lwt = get_lwt(path); }
+			void reload_lwt() { lwt = get_lwt(path); }
 
 			operator ListElement<fs::path>() { return ListElement<fs::path>{path}; }
 			bool operator==(const ListElement<fs::path>& file) { return (path == file.value); }
@@ -591,7 +591,7 @@ namespace _STD_BUILD {
 					if (it != source_files.end()) {
 						// If the file is present, then rebuild the include hierarchy.
 						(*it).dependent_files = get_includes(include_dirs, (*it).path);
-						(*it).reset_lwt();
+						(*it).reload_lwt();
 
 						// We need to make sure that all the header files have this source file as one of their dependents.
 						for (const auto& dep_header : (*it).dependent_files) {
@@ -618,7 +618,7 @@ namespace _STD_BUILD {
 					if (it != source_files.end()) {
 						// If the file is present, then rebuild the include hierarchy.
 						(*it).dependent_files = get_includes(include_dirs, (*it).path);
-						(*it).reset_lwt();
+						(*it).reload_lwt();
 					} else {
 						// If not, then add it to the source list.
 						source_files.push_back({ new_file.value });
