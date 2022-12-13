@@ -14,8 +14,8 @@
 6. <nc></nc> Begin work on cross platform and cross compiler support.  
 7. <nc></nc> Compilation parallelization.  
 8. <c></c> Automatically call exit(1) when create_executable fails and allow that to be disabled.
-9. <nc></nc> Rename std::build::build_path.  
+9. <c></c> Rename std::build::build_path.  
 10. <nc></nc> Add help command to stdbuild
-11. <nc></nc> Create and cache an include hierarchy.
+11. <c></c> Create and cache an include hierarchy.
 11. <nc></nc> Add helper functions for checking for things like which compiler is being used.
-12. <nc></nc> Remove constexpr support.
+12. <c></c> Remove constexpr support.

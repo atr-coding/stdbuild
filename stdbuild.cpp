@@ -23,10 +23,7 @@ fs::path home_directory() {
 
 std::string clean_string(const std::string& str) {
 	std::string temp = str;
-	temp.erase(std::remove_if(temp.begin(), temp.end(),
-		[](const char& c) {
-			return !std::isalnum(c);
-		}), temp.end());
+	temp.erase(std::remove_if(temp.begin(), temp.end(), [](const char& c) { return !std::isalnum(c); }), temp.end());
 	return temp;
 }
 
@@ -73,14 +70,9 @@ bool generate_project_template(const fs::path& name) {
 			buildcpp.close();
 		}
 
-		return fs::exists(name) &&
-			fs::exists(name / "bin") &&
-			fs::exists(name / "build") &&
-			fs::exists(name / "include") &&
-			fs::exists(name / "src") &&
-			fs::exists(name / "lib") &&
-			fs::exists(name / "src/main.cpp") &&
-			fs::exists(name / "build.cpp");
+		return fs::exists(name) && fs::exists(name / "bin") && fs::exists(name / "build") &&
+		       fs::exists(name / "include") && fs::exists(name / "src") && fs::exists(name / "lib") &&
+		       fs::exists(name / "src/main.cpp") && fs::exists(name / "build.cpp");
 	}
 	return false;
 }
@@ -108,7 +100,7 @@ int main(int argc, char** argv) {
 		} else if (arg == "-new") {
 			std::cout << "Generating project structure - ";
 			if (i + 1 < argc) {
-				std::string name{ argv[i + 1] }; //TODO: Clean this input.
+				std::string name{ argv[i + 1] }; // TODO: Clean this input.
 				if (name.at(0) != '-') {
 					std::cout << (generate_project_template(fs::path(name)) ? "done." : "failed.") << '\n';
 				}
@@ -126,7 +118,9 @@ int main(int argc, char** argv) {
 
 	std::ostringstream ss;
 	ss << "g++ -std=c++20 ";
-	if (include_stdbuild) { ss << "-I" << stdbuild_path << ' '; }
+	if (include_stdbuild) {
+		ss << "-I" << stdbuild_path << ' ';
+	}
 	ss << build_file_path;
 	if (run_after_build) {
 		ss << " -D_STD_BUILD_RUN";

@@ -14,18 +14,6 @@
 #include <type_traits>
 #include <utility>
 
-#if defined(__cpp_lib_constexpr_vector) && defined(__cpp_lib_constexpr_string)
-#define _CONSTEXPR_20 constexpr
-#else
-#define _CONSTEXPR_20
-#endif
-
-#if (__cplusplus >= 201703L)
-#define _CONSTEXPR_17 constexpr
-#else
-#define _CONSTEXPR_17
-#endif
-
 #define _STD_BUILD std::build
 #define _STD_BUILD_OUTPUT(str) std::cout << str;
 
@@ -68,7 +56,7 @@ namespace _STD_BUILD {
 	inline const library_type header_library = library_type::HEADER;
 
 	namespace fs = std::filesystem;
-	using build_path = fs::path;
+	using path = fs::path;
 
 	template <typename Type>
 	class list_base;
@@ -151,29 +139,29 @@ namespace _STD_BUILD {
 	////////////// Version //////////////
 
 	struct version {
-		_CONSTEXPR_17 version() = default;
-		_CONSTEXPR_17 version(uint32_t major, uint32_t minor, uint32_t patch)
+		version() = default;
+		version(uint32_t major, uint32_t minor, uint32_t patch)
 			: m_major(major), m_minor(minor), m_patch(patch) {}
-		_CONSTEXPR_17 const uint32_t major() const { return m_major; }
-		_CONSTEXPR_17 const uint32_t minor() const { return m_minor; }
-		_CONSTEXPR_17 const uint32_t patch() const { return m_patch; }
-		_CONSTEXPR_17 bool operator>(const version& other) const {
+		const uint32_t major() const { return m_major; }
+		const uint32_t minor() const { return m_minor; }
+		const uint32_t patch() const { return m_patch; }
+		bool operator>(const version& other) const {
 			return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch);
 		}
 
-		_CONSTEXPR_17 bool operator<(const version& other) const {
+		bool operator<(const version& other) const {
 			return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch);
 		}
 
-		_CONSTEXPR_17 bool operator==(const version& other) const {
+		bool operator==(const version& other) const {
 			return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch);
 		}
 
-		_CONSTEXPR_17 bool operator>=(const version& other) const {
+		bool operator>=(const version& other) const {
 			return (m_major >= other.m_major && m_minor >= other.m_minor && m_patch >= other.m_patch);
 		}
 
-		_CONSTEXPR_17 bool operator<=(const version& other) const {
+		bool operator<=(const version& other) const {
 			return (m_major <= other.m_major && m_minor <= other.m_minor && m_patch <= other.m_patch);
 		}
 
@@ -197,25 +185,25 @@ namespace _STD_BUILD {
 			: std::true_type {};
 
 	public:
-		_CONSTEXPR_20 list_base() = default;
+		list_base() = default;
 		list_base(const Type&) = delete;
-		_CONSTEXPR_20 list_base(const list_base<Type>& list) : m_items(list.m_items) {}
-		_CONSTEXPR_20 list_base(list_base<Type>&& list) noexcept {
+		list_base(const list_base<Type>& list) : m_items(list.m_items) {}
+		list_base(list_base<Type>&& list) noexcept {
 			if (this != &list) {
 				m_items = std::move(list.m_items);
 			}
 		}
-		_CONSTEXPR_20 list_base(const std::initializer_list<Type>& elements) {
+		list_base(const std::initializer_list<Type>& elements) {
 			m_items.insert(m_items.end(), elements.begin(), elements.end());
 		}
 
 		/// Misc Functions ///
 
-		_CONSTEXPR_20 std::vector<Type>& get() { return m_items; }
-		_CONSTEXPR_20 const std::vector<Type>& get() const { return m_items; }
-		_CONSTEXPR_20 std::size_t size() const { return m_items.size(); }
-		_CONSTEXPR_20 std::size_t size() { return m_items.size(); }
-		_CONSTEXPR_20 void add(const Type& item) { m_items.push_back(item); }
+		std::vector<Type>& get() { return m_items; }
+		const std::vector<Type>& get() const { return m_items; }
+		std::size_t size() const { return m_items.size(); }
+		std::size_t size() { return m_items.size(); }
+		void add(const Type& item) { m_items.push_back(item); }
 
 		// TODO: improve this
 		template <typename _Type = Type>
@@ -235,27 +223,27 @@ namespace _STD_BUILD {
 
 		/// Operators ///
 
-		_CONSTEXPR_20 list_base<Type>& operator=(const list_base<Type>& list) {
+		list_base<Type>& operator=(const list_base<Type>& list) {
 			if (this != &list) {
 				m_items = list.m_items;
 			}
 			return *this;
 		}
 
-		_CONSTEXPR_20 list_base<Type>& operator=(list_base<Type>&& list) {
+		list_base<Type>& operator=(list_base<Type>&& list) {
 			if (this != &list) {
 				m_items = std::move(list.m_items);
 			}
 			return *this;
 		}
 
-		_CONSTEXPR_20 void operator+=(const Type& item) { add(item); }
+		void operator+=(const Type& item) { add(item); }
 
-		_CONSTEXPR_20 void operator+=(const list_base<Type>& list) {
+		void operator+=(const list_base<Type>& list) {
 			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
 		}
 
-		_CONSTEXPR_20 list_base<Type> operator+(const list_base<Type>& other) {
+		list_base<Type> operator+(const list_base<Type>& other) {
 			list_base<Type> copy;
 			copy.get() = m_items;
 			copy.get().insert(copy.get().end(), other.get().begin(), other.get().end());
@@ -264,10 +252,10 @@ namespace _STD_BUILD {
 
 		/// Iterator Functions ///
 
-		_CONSTEXPR_20 auto begin() { return m_items.begin(); }
-		_CONSTEXPR_20 const auto begin() const { return m_items.begin(); }
-		_CONSTEXPR_20 auto end() { return m_items.end(); }
-		_CONSTEXPR_20 const auto end() const { return m_items.end(); }
+		auto begin() { return m_items.begin(); }
+		const auto begin() const { return m_items.begin(); }
+		auto end() { return m_items.end(); }
+		const auto end() const { return m_items.end(); }
 
 		/// Stream Functions ///
 		friend std::ostream& operator<<(std::ostream& stream, const list_base<Type>& list) {
@@ -798,7 +786,7 @@ namespace _STD_BUILD {
 		package_list pkgs;
 		version ver{ 0, 0, 0 };
 		std::string name{ "package" };
-		build_path dir{ "." };
+		path dir{ "." };
 		library_type type{ static_library };
 	};
 
