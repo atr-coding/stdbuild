@@ -1,4 +1,5 @@
 #include "../../../stdbuild"
+#include <cassert>
 
 struct PKG1 : std::build::package {
 	PKG1(std::build::build_path _dir) {

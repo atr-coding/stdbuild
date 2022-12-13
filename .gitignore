@@ -1,6 +1,7 @@
 build.bat
 *.exe
 .vscode/
+.vs/
 bin/
 build/
 stdbuild-autogen.exe
