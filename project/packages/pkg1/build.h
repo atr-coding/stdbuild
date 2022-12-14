@@ -1,8 +1,8 @@
 #include "../../../stdbuild"
 #include <cassert>
 
-struct PKG1 : std::build::package {
-	PKG1(std::build::path _dir) {
+struct PKG1 : stdbuild::package {
+	PKG1(stdbuild::path _dir) {
 		name = "pkg1";
 		dir = _dir;
 		ver = { 0, 0, 1 };

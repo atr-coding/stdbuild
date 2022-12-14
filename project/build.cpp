@@ -4,11 +4,11 @@
 #include "../stdbuild"
 #include "packages/packages.h"
 
-const std::build::string_list warning_flags = {
+const stdbuild::string_list warning_flags = {
 	"-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wpedantic", "-Werror"
 };
 
-struct project : std::build::package {
+struct project : stdbuild::package {
 	project() {
 		name = "project";
 		flags = { "-std=c++20", "-DTEST_DEF", "-fanalyzer" };
@@ -20,5 +20,5 @@ struct project : std::build::package {
 
 int main() {
 	auto proj = project();
-	std::build::create_executable(proj);
+	stdbuild::create_executable(proj);
 }

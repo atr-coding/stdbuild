@@ -34,4 +34,6 @@ void test_version() {
 
 	assert(zero == zero);
 	assert(zero != std::build::version(1, 0, 0));
+
+	assert(std::build::version(3, 89, 10).to_string() == "3.89.10");
 }

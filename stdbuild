@@ -14,7 +14,7 @@
 #include <utility>
 #include <memory>
 
-#define _STD_BUILD std::build
+#define _STD_BUILD stdbuild
 #define _STD_BUILD_OUTPUT(str) std::cout << str;
 
 #ifdef _STD_BUILD_VERBOSE
@@ -210,6 +210,11 @@ namespace _STD_BUILD {
 
 		bool operator<=(const version& other) const { return (*this < other || *this == other); }
 
+		std::string to_string() {
+			std::stringstream ss;
+			ss << m_major << '.' << m_minor << '.' << m_patch;
+			return ss.str();
+		}
 	private:
 		uint32_t m_major{ 0 }, m_minor{ 0 }, m_patch{ 0 };
 	};
