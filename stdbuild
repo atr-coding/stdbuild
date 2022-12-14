@@ -292,9 +292,9 @@ namespace _STD_BUILD {
 		/// Iterator Functions ///
 
 		auto begin() { return m_items.begin(); }
-		const auto begin() const { return m_items.begin(); }
+		auto begin() const { return m_items.begin(); }
 		auto end() { return m_items.end(); }
-		const auto end() const { return m_items.end(); }
+		auto end() const { return m_items.end(); }
 
 		/// Stream Functions ///
 		friend std::ostream& operator<<(std::ostream& stream, const list_base<Type>& list) {
@@ -344,13 +344,13 @@ namespace _STD_BUILD {
 			void write_string(std::ofstream& stream, const std::string& str) {
 				const std::size_t size = str.size();
 				stream.write(reinterpret_cast<const char*>(&size), sizeof(std::size_t));
-				stream.write(str.data(), size);
+				stream.write(str.data(), static_cast<std::streamsize>(size));
 			}
 
 			void read_string(std::ifstream& stream, std::string& str) {
-				std::size_t size{ 0 };
+				std::streamsize size{ 0 };
 				stream.read(reinterpret_cast<char*>(&size), sizeof(std::size_t));
-				str.resize(size);
+				str.resize(static_cast<std::size_t>(size));
 				stream.read(str.data(), size);
 			}
 
@@ -552,9 +552,9 @@ namespace _STD_BUILD {
 
 			friend std::ifstream& operator>>(std::ifstream& stream, lwt_file_block& block) {
 				// read the path
-				std::string path;
-				serialization::read_string(stream, path);
-				block.path = { path };
+				std::string temp_path;
+				serialization::read_string(stream, temp_path);
+				block.path = { temp_path };
 				// read the "last write time"
 				serialization::read_int64_t(stream, block.lwt);
 
@@ -649,7 +649,7 @@ namespace _STD_BUILD {
 
 		path_list get_includes(const path_list& include_directories, const fs::path& file_name) {
 			// get list of includes for each cpp file that are unsorted and contains duplicates
-			path_list unsorted_includes = std::move(get_includes_unsorted(include_directories, file_name));
+			path_list unsorted_includes = get_includes_unsorted(include_directories, file_name);
 			auto& data = unsorted_includes.get();
 
 			// Sort and remove duplicates
@@ -733,13 +733,13 @@ namespace _STD_BUILD {
 						// dependents.
 						for (const auto& dep_header : (*it).dependent_files) {
 							// Check if this header already exists in the cache header list.
-							auto it = std::find(header_files.begin(), header_files.end(), dep_header);
-							if (it != header_files.end()) {
+							auto it2 = std::find(header_files.begin(), header_files.end(), dep_header);
+							if (it2 != header_files.end()) {
 								// If it does then check if this header has the source in its dependency list.
-								auto it2 = std::find((*it).dependent_files.begin(), (*it).dependent_files.end(), modded_file);
-								if (it2 == (*it).dependent_files.end()) {
+								auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(), modded_file);
+								if (it3 == (*it2).dependent_files.end()) {
 									// File doesn't exist in the headers dependency list, so add it.
-									(*it).dependent_files.add(modded_file);
+									(*it2).dependent_files.add(modded_file);
 								}
 							} else {
 								header_files.push_back({ dep_header.value, get_lwt(dep_header.value), { modded_file } });
@@ -1192,7 +1192,7 @@ namespace _STD_BUILD {
 		std::vector<_Library_Output> libraries;
 		if (dep.size() > 0) {
 			_STD_BUILD_VERBOSE_OUTPUT("Building Dependencies: ");
-			for (const auto* p : dep) {
+			for ([[maybe_unused]] const auto* p : dep) {
 				_STD_BUILD_VERBOSE_OUTPUT(p->name << ' ');
 			}
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
