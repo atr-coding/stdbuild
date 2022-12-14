@@ -2,7 +2,7 @@
 #include <cassert>
 
 struct PKG1 : std::build::package {
-	PKG1(std::build::build_path _dir) {
+	PKG1(std::build::path _dir) {
 		name = "pkg1";
 		dir = _dir;
 		ver = { 0, 0, 1 };
