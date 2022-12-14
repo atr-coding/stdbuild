@@ -17,5 +17,6 @@
 9. <c></c> Rename std::build::build_path.  
 10. <nc></nc> Add help command to stdbuild
 11. <c></c> Create and cache an include hierarchy.
-11. <nc></nc> Add helper functions for checking for things like which compiler is being used.
-12. <c></c> Remove constexpr support.
+12. <c></c> Add helper functions for checking for things like which compiler is being used.
+13. <c></c> Remove constexpr support.
+14. <nc></nc> Add caching to libraries instead of just the main project.

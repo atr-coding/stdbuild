@@ -144,6 +144,30 @@ namespace _STD_BUILD {
 #endif
 	}
 
+	inline bool is_msvc() {
+#if defined(_MSC_VER)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool is_gcc() {
+#if defined(__GNUC__)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool is_clang() {
+#if defined(__clang__)
+		return true;
+#else
+		return false;
+#endif
+	}
+
 	////////////// Error Handling //////////////
 
 	void _print_error_log() {
