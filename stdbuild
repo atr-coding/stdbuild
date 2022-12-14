@@ -112,6 +112,38 @@ namespace _STD_BUILD {
 
 	inline bool debugging_enabled() { return options().debug; }
 
+	inline bool is_windows() {
+#if defined(_WIN32) || defined(_WIN64)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool is_unix() {
+#if defined(__GNUC__)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool is_32_bit() {
+#if defined(_WIN32) || (defined(__GNUC__) && !defined(__x86_64__) && !defined(__ppc64__))
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool is_64_bit() {
+#if defined(_WIN64) || (defined(__GNUC__) && (defined(__x86_64__) || !defined(__ppc64__)))
+		return true;
+#else
+		return false;
+#endif
+	}
+
 	////////////// Error Handling //////////////
 
 	void _print_error_log() {
