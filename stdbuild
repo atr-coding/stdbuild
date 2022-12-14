@@ -12,6 +12,7 @@
 #include <unordered_map>
 #include <type_traits>
 #include <utility>
+#include <memory>
 
 #define _STD_BUILD std::build
 #define _STD_BUILD_OUTPUT(str) std::cout << str;
@@ -141,17 +142,11 @@ namespace _STD_BUILD {
 		uint32_t patch() { return m_patch; }
 		uint32_t patch() const { return m_patch; }
 
-		bool operator>(const version& other) const {
-			return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch);
-		}
+		bool operator>(const version& other) const { return (m_major > other.m_major || m_minor > other.m_minor || m_patch > other.m_patch); }
 
-		bool operator<(const version& other) const {
-			return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch);
-		}
+		bool operator<(const version& other) const { return (m_major < other.m_major || m_minor < other.m_minor || m_patch < other.m_patch); }
 
-		bool operator==(const version& other) const {
-			return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch);
-		}
+		bool operator==(const version& other) const { return (m_major == other.m_major && m_minor == other.m_minor && m_patch == other.m_patch); }
 
 		bool operator!=(const version& other) const { return !(*this == other); }
 
@@ -175,8 +170,7 @@ namespace _STD_BUILD {
 		struct is_streamable : std::false_type {};
 
 		template <typename _Type, typename Stream>
-		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>>
-		    : std::true_type {};
+		struct is_streamable<_Type, Stream, std::void_t<decltype(std::declval<Stream&>() << std::declval<_Type>())>> : std::true_type {};
 
 	public:
 		list_base() = default;
@@ -187,9 +181,7 @@ namespace _STD_BUILD {
 				m_items = std::move(list.m_items);
 			}
 		}
-		list_base(const std::initializer_list<Type>& elements) {
-			m_items.insert(m_items.end(), elements.begin(), elements.end());
-		}
+		list_base(const std::initializer_list<Type>& elements) { m_items.insert(m_items.end(), elements.begin(), elements.end()); }
 
 		/// Misc Functions ///
 
@@ -201,8 +193,7 @@ namespace _STD_BUILD {
 
 		// TODO: improve this
 		template <typename _Type = Type>
-		auto string(unsigned char delim = ' ') const
-		    -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
+		auto string(unsigned char delim = ' ') const -> std::enable_if_t<is_streamable<Type, std::ostream>::value, _Type> {
 			if (m_items.size() > 0) {
 				std::ostringstream ss;
 				for (const auto& item : m_items) {
@@ -233,9 +224,7 @@ namespace _STD_BUILD {
 
 		void operator+=(const Type& item) { add(item); }
 
-		void operator+=(const list_base<Type>& list) {
-			m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end());
-		}
+		void operator+=(const list_base<Type>& list) { m_items.insert(m_items.end(), list.m_items.begin(), list.m_items.end()); }
 
 		list_base<Type> operator+(const list_base<Type>& other) {
 			list_base<Type> copy;
@@ -271,19 +260,15 @@ namespace _STD_BUILD {
 		ListElement(const Type& _value) : value(_value) {}
 		ListElement(const Type& _value, access _access_level) : value(_value), access_level(_access_level) {}
 
-		template <typename Type2>
-		    requires std::is_convertible_v<Type2, Type>
+		template <typename Type2, typename = std::enable_if_t<std::is_convertible_v<Type2, Type>>>
 		ListElement(const Type2& _value) : value(_value) {}
 
-		template <typename Type2>
-		    requires std::is_convertible_v<Type2, Type>
+		template <typename Type2, typename = std::enable_if_t<std::is_convertible_v<Type2, Type>>>
 		ListElement(const Type2& _value, access _access_level) : value(_value), access_level(_access_level) {}
 
 		bool operator<(const ListElement<Type>& other) const { return value < other.value; }
 
-		bool operator==(const ListElement<Type>& other) const {
-			return (value == other.value && access_level == other.access_level);
-		}
+		bool operator==(const ListElement<Type>& other) const { return (value == other.value && access_level == other.access_level); }
 
 		friend std::ostream& operator<<(std::ostream& stream, const ListElement& element) {
 			stream << element.value << ' ';
@@ -313,18 +298,10 @@ namespace _STD_BUILD {
 				stream.read(str.data(), size);
 			}
 
-			void write_int64_t(std::ofstream& stream, const int64_t i) {
-				stream.write(reinterpret_cast<const char*>(&i), sizeof(int64_t));
-			}
-			void read_int64_t(std::ifstream& stream, int64_t& i) {
-				stream.read(reinterpret_cast<char*>(&i), sizeof(int64_t));
-			}
-			void write_size_t(std::ofstream& stream, const std::size_t i) {
-				stream.write(reinterpret_cast<const char*>(&i), sizeof(std::size_t));
-			}
-			void read_size_t(std::ifstream& stream, std::size_t& i) {
-				stream.read(reinterpret_cast<char*>(&i), sizeof(std::size_t));
-			}
+			void write_int64_t(std::ofstream& stream, const int64_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(int64_t)); }
+			void read_int64_t(std::ifstream& stream, int64_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(int64_t)); }
+			void write_size_t(std::ofstream& stream, const std::size_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(std::size_t)); }
+			void read_size_t(std::ifstream& stream, std::size_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(std::size_t)); }
 
 		} // namespace serialization
 
@@ -498,13 +475,9 @@ namespace _STD_BUILD {
 
 			operator ListElement<fs::path>() { return ListElement<fs::path>{ path }; }
 			bool operator==(const ListElement<fs::path>& file) { return (path == file.value); }
-			friend bool operator==(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
-				return (file.value == lwtfb.path);
-			}
+			friend bool operator==(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) { return (file.value == lwtfb.path); }
 			bool operator<(const ListElement<fs::path>& file) { return (path < file.value); }
-			friend bool operator<(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
-				return (file.value < lwtfb.path);
-			}
+			friend bool operator<(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) { return (file.value < lwtfb.path); }
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
 				serialization::write_string(stream, block.path.string());
@@ -544,9 +517,7 @@ namespace _STD_BUILD {
 			}
 		};
 
-		std::optional<fs::path> find_file(const path_list& include_directories,
-		                                  const fs::path& parent_dir,
-		                                  const fs::path& file) {
+		std::optional<fs::path> find_file(const path_list& include_directories, const fs::path& parent_dir, const fs::path& file) {
 			if (fs::exists(file)) {
 				return file;
 			}
@@ -565,12 +536,7 @@ namespace _STD_BUILD {
 		};
 
 		template <typename _InIt, typename _InIt2, typename _OutIt>
-		void find_differences(const _InIt begin1,
-		                      const _InIt end1,
-		                      const _InIt2 begin2,
-		                      const _InIt2 end2,
-		                      _OutIt add,
-		                      _OutIt sub) {
+		void find_differences(const _InIt begin1, const _InIt end1, const _InIt2 begin2, const _InIt2 end2, _OutIt add, _OutIt sub) {
 			for (_InIt temp = begin1; temp != end1; ++temp) {
 				if (std::find(begin2, end2, *temp) == end2) {
 					*add++ = *temp;
@@ -599,12 +565,9 @@ namespace _STD_BUILD {
 				std::string line;
 				while (std::getline(file, line)) {
 
-					if (line.starts_with("#include")) {
-						line =
-						    line.substr(8 + (line.at(8) == ' ' ?
-						                         1 :
-						                         0)); // remove "#include", and if it exists, remove whitespace after it
-						line = line.substr(1, line.size() - 2); // remove the <> or ""
+					if (line.substr(0, 8) == "#include") {
+						line = line.substr(8 + (line.at(8) == ' ' ? 1 : 0)); // remove "#include", and if it exists, remove whitespace after it
+						line = line.substr(1, line.size() - 2);              // remove the <> or ""
 
 						// check if the include file is part of the standard library or not
 						if (!is_standard_library_header(line)) {
@@ -614,8 +577,7 @@ namespace _STD_BUILD {
 								includes.get().push_back(clean_path);
 
 								// Check if the dependency has dependencies.
-								for (const auto& sub_include_path :
-								     get_includes_unsorted(include_directories, clean_path)) {
+								for (const auto& sub_include_path : get_includes_unsorted(include_directories, clean_path)) {
 									includes.get().push_back(sub_include_path);
 								}
 							}
@@ -718,15 +680,13 @@ namespace _STD_BUILD {
 							auto it = std::find(header_files.begin(), header_files.end(), dep_header);
 							if (it != header_files.end()) {
 								// If it does then check if this header has the source in its dependency list.
-								auto it2 =
-								    std::find((*it).dependent_files.begin(), (*it).dependent_files.end(), modded_file);
+								auto it2 = std::find((*it).dependent_files.begin(), (*it).dependent_files.end(), modded_file);
 								if (it2 == (*it).dependent_files.end()) {
 									// File doesn't exist in the headers dependency list, so add it.
 									(*it).dependent_files.add(modded_file);
 								}
 							} else {
-								header_files.push_back(
-								    { dep_header.value, get_lwt(dep_header.value), { modded_file } });
+								header_files.push_back({ dep_header.value, get_lwt(dep_header.value), { modded_file } });
 							}
 						}
 					}
@@ -756,8 +716,7 @@ namespace _STD_BUILD {
 						for (const auto& header : (*it).dependent_files) {
 							const auto it2 = std::find(header_files.begin(), header_files.end(), header);
 							if (it2 != header_files.end()) {
-								const auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(),
-								                           removed_file);
+								const auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(), removed_file);
 								if (it3 != (*it2).dependent_files.end()) {
 									(*it2).dependent_files.get().erase(it3);
 								}
@@ -860,8 +819,7 @@ namespace _STD_BUILD {
 
 					// Recursively get all the header files associated with this source file and add them to the source
 					// files dependents list.
-					cpp_file_dependencies[lexically_normal_file_path] =
-					    get_includes(include_directories, lexically_normal_file_path);
+					cpp_file_dependencies[lexically_normal_file_path] = get_includes(include_directories, lexically_normal_file_path);
 				} else {
 					_STD_BUILD_OUTPUT("File " << file.value << " was not found and cannot be added to the cache.\n");
 				}
@@ -933,6 +891,9 @@ namespace _STD_BUILD {
 		std::string name{ "package" };
 		path dir{ "." };
 		library_type type{ static_library };
+
+		bool operator<(const package& other) const { return (name < other.name); }
+		bool operator==(const package& other) const { return (name == other.name); }
 	};
 
 	////////////// Library //////////////
@@ -941,8 +902,7 @@ namespace _STD_BUILD {
 		fs::path location;
 		fs::path name;
 		library_type type{ static_library };
-		_Library_Output(fs::path _location, fs::path _name, library_type _type)
-		    : location(_location), name(_name), type(_type) {}
+		_Library_Output(fs::path _location, fs::path _name, library_type _type) : location(_location), name(_name), type(_type) {}
 	};
 
 	////////////// Compilation //////////////
@@ -960,15 +920,9 @@ namespace _STD_BUILD {
 		_Dependency_Vec dep;
 		_add_packages(dep, main_project);
 
-		// Iterate through the packages and find/remove duplicates
-		std::erase_if(dep, [&](const package* pkg) {
-			for (const auto* p : dep) {
-				if (p != pkg && p->name == pkg->name) {
-					return true;
-				}
-			}
-			return false;
-		});
+		// Remove duplicates.
+		std::sort(dep.begin(), dep.end(), [](const auto* a, const auto* b) { return (*a < *b); });
+		dep.erase(std::unique(dep.begin(), dep.end(), [](const auto* a, const auto* b) { return (*a == *b); }), dep.end());
 
 		return dep;
 	}
@@ -1058,9 +1012,7 @@ namespace _STD_BUILD {
 	////////////// Create Binaries //////////////
 
 	inline std::optional<_Library_Output> create_library(package& pkg) {
-		_STD_BUILD_OUTPUT(
-		    pkg.name << " - "
-		             << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
+		_STD_BUILD_OUTPUT(pkg.name << " - " << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
 
 		if (pkg.type != header_library) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
@@ -1161,8 +1113,7 @@ namespace _STD_BUILD {
 		__cache::cache_storage cache;
 		path_list files_to_compile;
 
-		const auto [initialized, new_cache] =
-		    __cache::initialize_cache(cache_path, project.include_dirs, project.sources);
+		const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, project.include_dirs, project.sources);
 		if (initialized) {
 			files_to_compile = project.sources;
 			cache = new_cache;
@@ -1174,8 +1125,7 @@ namespace _STD_BUILD {
 				cache.test(project.sources);
 				files_to_compile += cache.changes.added;
 				files_to_compile += cache.changes.modified;
-				_STD_BUILD_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size()
-				                               << " changes]\n");
+				_STD_BUILD_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size() << " changes]\n");
 			}
 		}
 
@@ -1250,8 +1200,7 @@ namespace _STD_BUILD {
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
-		output << _STD_BUILD_COMPILER << ' ' << obj_files.str() << " -o " << (bin_dir / project.name) << ' '
-		       << lds.str() << ls.str();
+		output << _STD_BUILD_COMPILER << ' ' << obj_files.str() << " -o " << (bin_dir / project.name) << ' ' << lds.str() << ls.str();
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		if (command(output.str())) {
 			_STD_BUILD_OUTPUT("\nThere was an error during linking:\n");

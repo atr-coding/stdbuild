@@ -11,7 +11,7 @@ BasedOnStyle: Google
 BinPackParameters: false
 BreakBeforeBraces: Attach
 BreakBeforeTernaryOperators: false
-ColumnLimit: 120
+ColumnLimit: 150
 Cpp11BracedListStyle: false
 DerivePointerAlignment: true
 IndentWidth: 4
