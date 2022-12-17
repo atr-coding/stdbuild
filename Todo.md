@@ -15,7 +15,7 @@
 7. <nc></nc> Compilation parallelization.  
 8. <c></c> Automatically call exit(1) when create_executable fails and allow that to be disabled.
 9. <c></c> Rename std::build::build_path.  
-10. <nc></nc> Add help command to stdbuild
+10. <c></c> Add help command to stdbuild
 11. <c></c> Create and cache an include hierarchy.
 12. <c></c> Add helper functions for checking for things like which compiler is being used.
 13. <c></c> Remove constexpr support.
