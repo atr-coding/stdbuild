@@ -21,6 +21,7 @@ MaxEmptyLinesToKeep: 2
 NamespaceIndentation: All
 SortIncludes: false
 SpaceAfterTemplateKeyword: true
+SpaceBeforeParens: Never
 SpacesBeforeTrailingComments: 1
 SpacesInContainerLiterals: true
 SpacesInSquareBrackets: false

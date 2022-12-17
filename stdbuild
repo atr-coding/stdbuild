@@ -23,12 +23,12 @@
 #define _STD_BUILD_VERBOSE_OUTPUT(str)
 #endif
 
-#if defined(_MSC_VER)
-#define _STD_BUILD_COMPILER "cl"
-#elif defined(__GNUC__)
+#if defined(__clang__)
+#define _STD_BUILD_COMPILER "clang++"
+#elif defined(__GNUC__) || defined(__GNUG__)
 #define _STD_BUILD_COMPILER "g++"
-#elif defined(__clang__)
-#define _STD_BUILD_COMPILER "clang"
+#elif defined(_MSC_VER)
+#define _STD_BUILD_COMPILER "cl"
 #else
 #error A supported compiler (msvc, g++, clang) must be used.
 #endif
@@ -1079,13 +1079,11 @@ namespace _STD_BUILD {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
-		if (!_verify_bin_and_build_directories(pkg.name)) {
-			return std::nullopt;
-		};
+		_verify_bin_and_build_directories(pkg.name);
+
 		auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto project_build_dir = build_dir / pkg.name;
-
 
 		// Transform library include directories by adding the project directory to the beginning.
 		for (auto& id : pkg.include_dirs) {
@@ -1094,15 +1092,10 @@ namespace _STD_BUILD {
 
 		if (pkg.type != header_library) {
 			if (pkg.sources.size() > 0) {
-				// auto objs = compile(pkg);
 				auto comp = compile(project_build_dir, pkg.dir, pkg.flags, pkg.include_dirs, pkg.sources);
 				if (!comp) {
 					return std::nullopt;
 				}
-
-				// if (!objs) {
-				// 	return std::nullopt;
-				// }
 
 				// Convert all source file names into corresponding object file names.
 				std::stringstream obj_files;
