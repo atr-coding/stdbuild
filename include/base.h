@@ -6,13 +6,13 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <optional>
 #include <fstream>
 #include <algorithm>
 #include <unordered_map>
 #include <type_traits>
 #include <utility>
 #include <memory>
+#include <exception>
 
 #define _STD_BUILD stdbuild
 #define _STD_BUILD_OUTPUT(str) std::cout << str;
@@ -31,14 +31,6 @@
 #define _STD_BUILD_COMPILER "cl"
 #else
 #error A supported compiler (msvc, g++, clang) must be used.
-#endif
-
-#ifdef _STD_BUILD_DONT_EXIT_ON_FAILURE
-#define _STD_BUILD_FAILURE_RETURN() return false
-#else
-#define _STD_BUILD_FAILURE_RETURN() \
-	std::exit(1);                   \
-	return false
 #endif
 
 #define _STD_BUILD_FAILURE() std::exit(1);
@@ -198,5 +190,82 @@ namespace _STD_BUILD {
 		"crtdbg.h",
 		"Windows.h",
 	};
+
+	/// Exceptions ///
+	void _print_error_log();
+
+	struct build_exception : std::exception {
+		build_exception(const std::string& msg) : m_msg(msg) {}
+		const char* what() const noexcept { return m_msg.c_str(); }
+
+	private:
+		std::string m_msg;
+	};
+
+	struct compile_exception : std::exception {
+		compile_exception(const std::string& msg, bool print_error_log = false) : m_msg(msg) {
+			if(print_error_log) {
+				_print_error_log();
+			}
+		}
+		const char* what() const noexcept { return m_msg.c_str(); }
+
+	private:
+		std::string m_msg;
+	};
+
+	struct library_exception : std::exception {
+		library_exception(const std::string& msg, bool print_error_log = false) : m_msg(msg) {
+			if(print_error_log) {
+				_print_error_log();
+			}
+		}
+		const char* what() const noexcept { return m_msg.c_str(); }
+
+	private:
+		std::string m_msg;
+	};
+
+	struct executable_exception : std::exception {
+		executable_exception(const std::string& msg, bool print_error_log = false) : m_msg(msg) {
+			if(print_error_log) {
+				_print_error_log();
+			}
+		}
+		const char* what() const noexcept { return m_msg.c_str(); }
+
+	private:
+		std::string m_msg;
+	};
+
+	struct cache_exception: std::exception {
+		cache_exception(const std::string& msg) : m_msg(msg) {}
+		const char* what() const noexcept { return m_msg.c_str(); }
+
+	private:
+		std::string m_msg;
+	};
+
+	/// Exceptions end ///
+	
+	bool _verify_bin_and_build_directories(const fs::path& bin_dir, const fs::path& build_dir, const std::string& project_name) {
+		/*const auto& bin_dir = options().bin_dir;
+		const auto& build_dir = options().build_dir / project_name;*/
+		// Create the desired bin directory if it doesn't exist already.
+		if(!fs::exists(bin_dir)) {
+			try {
+				fs::create_directories(bin_dir);
+			} catch(std::exception& e) { throw build_exception("Failed to create bin directory " + bin_dir.string()); }
+		}
+
+		// Create the desired build directory if it doesn't exist already.
+		if(!fs::exists(build_dir)) {
+			try {
+				fs::create_directories(build_dir);
+			} catch(std::exception& e) { throw build_exception("Failed to create build directory " + build_dir.string()); }
+		}
+
+		return true;
+	}
 
 } // namespace _STD_BUILD

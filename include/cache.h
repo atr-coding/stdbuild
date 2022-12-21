@@ -48,6 +48,80 @@ namespace _STD_BUILD {
 #endif
 		}
 
+		fs::path find_file(const path_list& include_directories, const fs::path& parent_dir, const fs::path& file) {
+			if(fs::exists(file)) {
+				return file;
+			}
+			if(fs::exists(parent_dir / file)) {
+				return parent_dir / file;
+			}
+
+			for(const auto& dir : include_directories) {
+				const auto prepended_file_loc = dir.value / file;
+				if(fs::exists(prepended_file_loc)) {
+					return prepended_file_loc;
+				}
+			}
+
+			std::stringstream ss;
+			ss << "Failed to find the file: " << file.string() << " in the parent directory: " << parent_dir.string()
+			   << " or in any of the include directories: \n";
+			for(const auto& id : include_directories) {
+				ss << id.value.string() << '\n';
+			}
+
+			throw cache_exception(ss.str());
+		};
+
+		path_list get_includes_unsorted(const path_list& include_directories, const fs::path& file_name) {
+			const fs::path parent_dir = file_name.parent_path();
+
+			path_list includes;
+
+			const auto is_standard_library_header = [&](const std::string& file) -> bool {
+				return (std::find(std_header_files.begin(), std_header_files.end(), file) != std_header_files.end());
+			};
+
+			std::ifstream file(file_name);
+			if(file.is_open()) {
+
+				std::string line;
+				while(std::getline(file, line)) {
+
+					if(line.substr(0, 8) == "#include") {
+						line = line.substr(8 + (line.at(8) == ' ' ? 1 : 0)); // remove "#include", and if it exists, remove whitespace after it
+						line = line.substr(1, line.size() - 2);              // remove the <> or ""
+
+						// check if the include file is part of the standard library or not
+						if(!is_standard_library_header(line)) {
+							const fs::path file_path = find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
+							includes.get().push_back(file_path);
+
+							// Check if the dependency has dependencies.
+							for(const auto& sub_include_path : get_includes_unsorted(include_directories, file_path)) {
+								includes.get().push_back(sub_include_path);
+							}
+						}
+					}
+				}
+
+				file.close();
+			}
+
+			return includes;
+		}
+
+		path_list get_includes(const path_list& include_directories, const fs::path& file_name) {
+			// get list of includes for each cpp file that are unsorted and contains duplicates
+			path_list unsorted_includes = get_includes_unsorted(include_directories, file_name);
+			auto& data = unsorted_includes.get();
+
+			// Sort and remove duplicates
+			std::sort(data.begin(), data.end());
+			data.erase(std::unique(data.begin(), data.end()), data.end());
+			return unsorted_includes;
+		}
+
 		struct lwt_file_block {
 			fs::path path;
 			int64_t lwt{ 0 };

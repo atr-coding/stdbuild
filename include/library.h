@@ -1,24 +1,23 @@
 #pragma once
 
 #include "base.h"
+#include "options.h"
 
 namespace _STD_BUILD {
 
 	struct _Library_Output {
-		fs::path location;
 		fs::path name;
 		library_type type{ static_library };
-		_Library_Output(fs::path _location, fs::path _name, library_type _type) : location(_location), name(_name), type(_type) {}
 	};
 
-	inline std::optional<_Library_Output> create_library(package& pkg) {
+	inline _Library_Output create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - " << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
 
 		if(pkg.type != header_library) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
-		_verify_bin_and_build_directories(pkg.name);
+		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
 
 		auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
@@ -33,10 +32,9 @@ namespace _STD_BUILD {
 
 		if(pkg.type != header_library) {
 			if(pkg.sources.size() > 0) {
-				auto comp = compile(project_build_dir, pkg.dir, pkg.flags, pkg.include_dirs, pkg.sources);
-				if(!comp) {
-					return std::nullopt;
-				}
+				// Compile all the libraries source files.
+				// If an error occurs with one of the compilations, then an exception will propagate up and terminate the build.
+				compile(project_build_dir, pkg);
 
 				// Convert all source file names into corresponding object file names.
 				std::stringstream obj_files;
@@ -44,30 +42,28 @@ namespace _STD_BUILD {
 					obj_files << (project_build_dir / (source.value.stem().replace_extension(".o"))).string() << ' ';
 				}
 
-				auto file = fs::path("lib" + pkg.name);
 				_STD_BUILD_VERBOSE_OUTPUT("Linking...");
+
+				auto file = fs::path("lib" + pkg.name + (pkg.type == static_library ? ".a" : ".so"));
 				std::stringstream output;
 
 				if(pkg.type == static_library) {
-					file.replace_extension(".a");
-					output << "ar rcs " << bin_dir / file << ' ' << obj_files.str();
+					output << "ar rcs ";
 				} else if(pkg.type == shared_library) {
-					file.replace_extension(".so");
-					output << _STD_BUILD_COMPILER << " -shared -o " << bin_dir / file << ' ' << obj_files.str();
+					output << _STD_BUILD_COMPILER << " -shared -o ";
 				}
+				output << bin_dir / file << ' ' << obj_files.str();
 
 				_STD_BUILD_VERBOSE_OUTPUT('\n');
 				if(command(output.str())) {
-					std::cout << "\nThere was an error in creating the library:\n";
-					_print_error_log();
-					return std::nullopt;
+					throw library_exception("There was an error in creating the library: " + pkg.name, true);
 				}
 				_STD_BUILD_VERBOSE_OUTPUT("output");
 				_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
 
 				pkg.post();
 
-				return _Library_Output(bin_dir, pkg.name, pkg.type);
+				return { pkg.name, pkg.type };
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
@@ -75,6 +71,6 @@ namespace _STD_BUILD {
 
 		pkg.post();
 
-		return _Library_Output(bin_dir, pkg.name, header_library);
+		return { pkg.name, header_library };
 	}
 } // namespace _STD_BUILD

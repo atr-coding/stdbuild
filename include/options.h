@@ -3,6 +3,7 @@
 #include "base.h"
 
 namespace _STD_BUILD {
+
 	struct _Options {
 		fs::path build_dir{ "build/" };
 		fs::path bin_dir{ "bin/" };
@@ -103,6 +104,14 @@ namespace _STD_BUILD {
 
 	inline bool is_clang() {
 #if defined(__clang__)
+		return true;
+#else
+		return false;
+#endif
+	}
+
+	inline bool running_after_build() {
+#ifdef _STD_BUILD_RUN
 		return true;
 #else
 		return false;
