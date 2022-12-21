@@ -46,11 +46,12 @@ namespace _STD_BUILD {
 	namespace fs = std::filesystem;
 	using path = fs::path;
 
-	enum class library_type : uint8_t { STATIC, SHARED, HEADER };
+	enum class library_type : uint8_t { STATIC, SHARED, HEADER, EXECUTABLE };
 
 	inline const library_type static_library = library_type::STATIC;
 	inline const library_type shared_library = library_type::SHARED;
 	inline const library_type header_library = library_type::HEADER;
+	inline const library_type executable = library_type::EXECUTABLE;
 
 	const std::vector<std::string> std_header_files = {
 		"bitset",

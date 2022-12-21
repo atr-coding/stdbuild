@@ -21,6 +21,5 @@ struct project : stdbuild::package {
 };
 
 int main() {
-	auto proj = project();
-	stdbuild::create_executable(proj);
+	stdbuild::create<project>();
 }

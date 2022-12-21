@@ -18,7 +18,7 @@ namespace _STD_BUILD {
 		version ver{ 0, 0, 0 };
 		std::string name{ "package" };
 		path dir{ "." };
-		library_type type{ static_library };
+		library_type type{ executable };
 		bool pre_built{ false };
 
 		virtual void pre(){};
