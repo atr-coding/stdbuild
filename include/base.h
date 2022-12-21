@@ -190,6 +190,7 @@ namespace _STD_BUILD {
 		"assert.h",
 		"crtdbg.h",
 		"Windows.h",
+		"concepts",
 	};
 
 	/// Exceptions ///
@@ -239,7 +240,7 @@ namespace _STD_BUILD {
 		std::string m_msg;
 	};
 
-	struct cache_exception: std::exception {
+	struct cache_exception : std::exception {
 		cache_exception(const std::string& msg) : m_msg(msg) {}
 		const char* what() const noexcept { return m_msg.c_str(); }
 
@@ -248,7 +249,7 @@ namespace _STD_BUILD {
 	};
 
 	/// Exceptions end ///
-	
+
 	bool _verify_bin_and_build_directories(const fs::path& bin_dir, const fs::path& build_dir, const std::string& project_name) {
 		const auto& bin = bin_dir;
 		const auto& build = build_dir / project_name;

@@ -33,11 +33,6 @@ namespace _STD_BUILD {
 			_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 
 			for(const auto& file : sources) {
-
-				if(fs::exists(file.value) == false) {
-					throw compile_exception("File " + file.value.string() + " doesn't exist.");
-				}
-
 				std::stringstream output;
 
 				output << _STD_BUILD_COMPILER << " -c " << pkg.flags;

@@ -28,28 +28,6 @@ namespace _STD_BUILD {
 			ld = (pkg.dir / ld.value);
 		}
 
-		// Load Cache
-		_STD_BUILD_OUTPUT("Loading cache: ");
-		const auto cache_path = build_dir / pkg.name / "cache";
-		__cache::cache_storage cache;
-		path_list files_to_compile;
-
-		const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg.include_dirs, pkg.sources);
-		if(initialized) {
-			files_to_compile = pkg.sources;
-			cache = new_cache;
-		} else {
-			if(!cache.load_from_file(cache_path)) {
-				files_to_compile = pkg.sources;
-				_STD_BUILD_OUTPUT("failed to load file.\n");
-			} else {
-				cache.test(pkg.sources);
-				files_to_compile += cache.changes.added;
-				files_to_compile += cache.changes.modified;
-				_STD_BUILD_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size() << " changes]\n");
-			}
-		}
-
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
 		auto dep = _build_dependency_vector(pkg);
 
@@ -76,6 +54,28 @@ namespace _STD_BUILD {
 						pkg.library_dirs.add(lib_dir);
 					}
 				}
+			}
+		}
+
+		// Load Cache
+		_STD_BUILD_OUTPUT("Loading cache: ");
+		const auto cache_path = build_dir / pkg.name / "cache";
+		__cache::cache_storage cache;
+		path_list files_to_compile;
+
+		const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg.include_dirs, pkg.sources);
+		if(initialized) {
+			files_to_compile = pkg.sources;
+			cache = new_cache;
+		} else {
+			if(!cache.load_from_file(cache_path)) {
+				files_to_compile = pkg.sources;
+				_STD_BUILD_OUTPUT("failed to load file.\n");
+			} else {
+				cache.test(pkg.sources);
+				files_to_compile += cache.changes.added;
+				files_to_compile += cache.changes.modified;
+				_STD_BUILD_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size() << " changes]\n");
 			}
 		}
 

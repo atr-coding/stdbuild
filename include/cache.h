@@ -64,10 +64,10 @@ namespace _STD_BUILD {
 			}
 
 			std::stringstream ss;
-			ss << "Failed to find the file: " << file.string() << " in the parent directory: " << parent_dir.string()
+			ss << "Failed to find the file: " << file.string() << " in the parent directory: " << parent_dir
 			   << " or in any of the include directories: \n";
 			for(const auto& id : include_directories) {
-				ss << id.value.string() << '\n';
+				ss << id.value << '\n';
 			}
 
 			throw cache_exception(ss.str());
@@ -94,13 +94,15 @@ namespace _STD_BUILD {
 
 						// check if the include file is part of the standard library or not
 						if(!is_standard_library_header(line)) {
-							const fs::path file_path = find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
-							includes.get().push_back(file_path);
+							try {
+								const fs::path file_path = find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
+								includes.get().push_back(file_path);
 
-							// Check if the dependency has dependencies.
-							for(const auto& sub_include_path : get_includes_unsorted(include_directories, file_path)) {
-								includes.get().push_back(sub_include_path);
-							}
+								// Check if the dependency has dependencies.
+								for(const auto& sub_include_path : get_includes_unsorted(include_directories, file_path)) {
+									includes.get().push_back(sub_include_path);
+								}
+							} catch(cache_exception& e) { _STD_BUILD_VERBOSE_OUTPUT(e.what() << '\n' << "Ignoring file in cache.\n"); }
 						}
 					}
 				}

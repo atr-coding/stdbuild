@@ -16,8 +16,7 @@
 11. <c></c> Create and cache an include hierarchy.
 12. <c></c> Add helper functions for checking for things like which compiler is being used.
 13. <c></c> Remove constexpr support.
+14. <nc></nc> Add caching to libraries instead of just the main project.
 3. <nc></nc> Fully implement upward propagation of flags, include/lib directories, and packages.  
 6. <nc></nc> Begin work on cross platform and cross compiler support.  
 7. <nc></nc> Compilation parallelization.  
-14. <nc></nc> Add caching to libraries instead of just the main project.
-15. <nc></nc> Cleanup normal/verbose build output.
