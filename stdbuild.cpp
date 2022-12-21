@@ -89,7 +89,7 @@ void print_help() {
 int main(int argc, char** argv) {
 	bool run_after_build = false;
 	bool verbose = false;
-	const fs::path stdbuild_path = home_directory().parent_path();
+	const fs::path stdbuild_path = home_directory().parent_path() / "include";
 	bool include_stdbuild{ false };
 	std::string build_file_path;
 
