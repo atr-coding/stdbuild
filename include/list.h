@@ -120,7 +120,9 @@ namespace _STD_BUILD {
 		}
 	};
 
-	using string_list = list_base<ListElement<std::string>>;
-	using path_list = list_base<ListElement<fs::path>>;
+	using StringListElement = ListElement<std::string>;
+	using string_list = list_base<StringListElement>;
+	using PathListElement = ListElement<fs::path>;
+	using path_list = list_base<PathListElement>;
 
-} // namespace stdbuild
+} // namespace _STD_BUILD

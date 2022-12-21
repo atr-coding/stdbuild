@@ -2,7 +2,7 @@
 // It is likely to change heavily over time.
 
 #include "../include/stdbuild.h"
-// #include "packages/packages.h"
+#include "packages/packages.h"
 
 struct project : stdbuild::package {
 	project() {
@@ -16,7 +16,7 @@ struct project : stdbuild::package {
 		}
 
 		sources = { "src/main.cpp", "src/test.cpp" };
-		// pkgs = { packages };
+		pkgs = { packages };
 	}
 };
 

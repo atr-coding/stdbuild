@@ -54,7 +54,7 @@ void generate_project_template(const std::string& name) {
 		auto cleaned_name = clean_string(name);
 
 		std::stringstream build_file;
-		build_file << "#include <stdbuild>\n\n";
+		build_file << "#include <stdbuild.h>\n\n";
 		build_file << "struct " << cleaned_name << " : stdbuild::package {\n";
 		build_file << '\t' << cleaned_name << "() {\n";
 		build_file << "\t\tname = \"" << cleaned_name << "\";\n";

@@ -19,6 +19,7 @@ namespace _STD_BUILD {
 		std::string name{ "package" };
 		path dir{ "." };
 		library_type type{ static_library };
+		bool pre_built{ false };
 
 		virtual void pre(){};
 		virtual void post(){};

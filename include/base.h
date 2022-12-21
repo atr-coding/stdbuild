@@ -249,20 +249,20 @@ namespace _STD_BUILD {
 	/// Exceptions end ///
 	
 	bool _verify_bin_and_build_directories(const fs::path& bin_dir, const fs::path& build_dir, const std::string& project_name) {
-		/*const auto& bin_dir = options().bin_dir;
-		const auto& build_dir = options().build_dir / project_name;*/
+		const auto& bin = bin_dir;
+		const auto& build = build_dir / project_name;
 		// Create the desired bin directory if it doesn't exist already.
-		if(!fs::exists(bin_dir)) {
+		if(!fs::exists(bin)) {
 			try {
-				fs::create_directories(bin_dir);
-			} catch(std::exception& e) { throw build_exception("Failed to create bin directory " + bin_dir.string()); }
+				fs::create_directories(bin);
+			} catch(std::exception& e) { throw build_exception("Failed to create bin directory " + bin.string()); }
 		}
 
 		// Create the desired build directory if it doesn't exist already.
-		if(!fs::exists(build_dir)) {
+		if(!fs::exists(build)) {
 			try {
-				fs::create_directories(build_dir);
-			} catch(std::exception& e) { throw build_exception("Failed to create build directory " + build_dir.string()); }
+				fs::create_directories(build);
+			} catch(std::exception& e) { throw build_exception("Failed to create build directory " + build.string()); }
 		}
 
 		return true;

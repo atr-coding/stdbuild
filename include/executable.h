@@ -91,10 +91,10 @@ namespace _STD_BUILD {
 
 		std::stringstream lds; // Library Directory String
 		std::stringstream ls;  // Libraries String
-		lds << "-Lbin/";
+		lds << "-Lbin/ ";
 		for(const auto& lib : libraries) {
 			if(lib.type != header_library) {
-				//lds << "-L" << lib.location.string() << ' ';
+				// lds << "-L" << lib.location.string() << ' ';
 				ls << "-l" << lib.name.string() << ' ';
 			}
 		}

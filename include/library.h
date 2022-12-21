@@ -13,7 +13,7 @@ namespace _STD_BUILD {
 	inline _Library_Output create_library(package& pkg) {
 		_STD_BUILD_OUTPUT(pkg.name << " - " << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
 
-		if(pkg.type != header_library) {
+		if(pkg.type != header_library && pkg.pre_built == false) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
@@ -25,9 +25,19 @@ namespace _STD_BUILD {
 
 		pkg.pre();
 
-		// Transform library include directories by adding the project directory to the beginning.
+		// Transform libraries include directories by adding the project directory to the beginning.
 		for(auto& id : pkg.include_dirs) {
 			id = { (pkg.dir / id.value).string(), id.access_level };
+		}
+
+		// Transform libraries library directories by adding the project directory to the beginning.
+		for(auto& ld : pkg.library_dirs) {
+			ld = { (pkg.dir / ld.value).string(), ld.access_level };
+		}
+
+		if(pkg.pre_built) {
+			_STD_BUILD_OUTPUT(" - prebuilt\n");
+			return { pkg.name, pkg.type };
 		}
 
 		if(pkg.type != header_library) {
