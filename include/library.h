@@ -24,6 +24,8 @@ namespace _STD_BUILD {
 		const auto build_dir = options().build_dir;
 		const auto project_build_dir = build_dir / pkg.name;
 
+		pkg.pre();
+
 		// Transform library include directories by adding the project directory to the beginning.
 		for(auto& id : pkg.include_dirs) {
 			id = { (pkg.dir / id.value).string(), id.access_level };
@@ -62,11 +64,17 @@ namespace _STD_BUILD {
 				}
 				_STD_BUILD_VERBOSE_OUTPUT("output");
 				_STD_BUILD_OUTPUT(" - " << (bin_dir / file).string() << '\n');
+
+				pkg.post();
+
 				return _Library_Output(bin_dir, pkg.name, pkg.type);
 			} else {
 				_STD_BUILD_VERBOSE_OUTPUT("No sources given, assuming header only.\n");
 			}
 		}
+
+		pkg.post();
+
 		return _Library_Output(bin_dir, pkg.name, header_library);
 	}
 } // namespace _STD_BUILD

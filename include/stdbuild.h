@@ -11,4 +11,4 @@
 #include "version.h"
 #include "link.h"
 #include "library.h"
-#include "binary.h"
+#include "executable.h"

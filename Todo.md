@@ -20,3 +20,4 @@
 6. <nc></nc> Begin work on cross platform and cross compiler support.  
 7. <nc></nc> Compilation parallelization.  
 14. <nc></nc> Add caching to libraries instead of just the main project.
+15. <nc></nc> Cleanup normal/verbose build output.

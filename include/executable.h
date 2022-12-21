@@ -21,9 +21,12 @@ namespace _STD_BUILD {
 		if(!_verify_bin_and_build_directories(project.name)) {
 			return false;
 		};
+
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto project_build_dir = build_dir / project.name;
+
+		project.pre();
 
 		// Transform include & library directories by prepending the project's working directory
 		for(auto& id : project.include_dirs) {
@@ -153,6 +156,9 @@ namespace _STD_BUILD {
 			_STD_BUILD_OUTPUT("Failed to find executable.\n");
 		}
 #endif
+
+		project.post();
+
 		return true;
 	}
 

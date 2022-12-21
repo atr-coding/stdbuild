@@ -20,6 +20,9 @@ namespace _STD_BUILD {
 		path dir{ "." };
 		library_type type{ static_library };
 
+		virtual void pre(){};
+		virtual void post(){};
+
 		bool operator<(const package& other) const { return (name < other.name); }
 		bool operator==(const package& other) const { return (name == other.name); }
 	};
