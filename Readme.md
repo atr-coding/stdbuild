@@ -4,13 +4,12 @@ Stdbuild is a prototype build system for C++ meant to remove the hassle of using
 interface that allows you to write build scripts in C++.
 
 Its goals are:
-- As close to standard compliant as possible.
 - Clean and easy to use scripting-like syntax.
-- Little to no loss in features when compared to third-party build systems.
-- Cross compiler support
-- Cross platform support
-- Multithreaded compilation
-- Package build caching
+- Cross compiler support.
+- Cross platform support.
+- Multithreaded compilation.
+- Build caching.
+- Package management.
 
 Examples:  
 This is a simple sample project consisting of the main project and one dependency called pkg1.  
@@ -33,8 +32,8 @@ pkg1/build.h:
 ```cpp
 #include <stdbuild>
 
-struct pkg1 : std::build::package {
-	pkg1(std::build::build_path _dir) {
+struct pkg1 : stdbuild::package {
+	pkg1(stdbuild::build_path _dir) {
 		name = "pkg1";
 		dir = _dir;
 		flags = { "-std=c++20" };
@@ -48,7 +47,7 @@ build.cpp:
 // packages should always have their own build.h file
 #include "packages/pkg1/build.h"
 
-struct project : std::build::package {
+struct project : stdbuild::package {
 	project() : package("project") {
 		name = "project";
 		flags = { "-std=c++20" };
@@ -59,10 +58,10 @@ struct project : std::build::package {
 
 int main() {
 	auto proj = project();
-	std::build::create_executable(proj);
+	stdbuild::create_executable(proj);
 }
 ```
-If the stdbuild executable is in your PATH and you are in the root directory then simply calling
+If the stdbuild executable is in your PATH and you are in the root directory of your project then simply calling
 ```shell
 stdbuild
 ```
@@ -88,7 +87,7 @@ A separate dependency list can also be made by creating a header file like so:
 #include "pkg2/build.h"
 #include "pkg3/build.h"
 
-const std::build::package_list dependencies = {
+const stdbuild::package_list dependencies = {
 	pkg1("dir_to_pkg1"),
 	pkg2("dir_to_pkg2"),
 	pkg3("dir_to_pkg3")
