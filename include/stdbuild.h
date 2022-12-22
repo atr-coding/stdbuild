@@ -22,9 +22,9 @@ namespace _STD_BUILD {
 		}
 	}
 
-	template<typename T>
-	void create() {
-		T pkg;
+	template<typename T, typename... Args>
+	void create(Args... args) {
+		T pkg(std::forward<Args>(args)...);
 		if(pkg.type == library_type::EXECUTABLE) {
 			create_executable(pkg);
 		} else {

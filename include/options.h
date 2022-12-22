@@ -1,6 +1,7 @@
 #pragma once
 
 #include "base.h"
+#include "threadpool.h"
 
 namespace _STD_BUILD {
 
@@ -11,6 +12,8 @@ namespace _STD_BUILD {
 		// std::string output_file{ "build/output" };
 		std::string error_file{ "build/error" };
 		bool debug{ false };
+		ThreadPool<CompileCommand> tpool;
+		bool use_caching{ true };
 
 		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
 		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
@@ -44,13 +47,22 @@ namespace _STD_BUILD {
 		options().bin_dir = path;
 	}
 
-	inline void set_option(const std::string& opt, bool value) { options().set(opt, value); }
+	inline void set_option(const std::string& opt, bool value) {
+		_STD_BUILD_VERBOSE_OUTPUT("Option: [" << opt << ", " << std::boolalpha << value << "]\n");
+		options().set(opt, value);
+	}
 
 	inline bool get_option(const std::string& opt) { return options().get(opt); }
 
-	inline void enable_debugging() { options().debug = true; }
+	inline void enable_debugging() {
+		_STD_BUILD_VERBOSE_OUTPUT("Debugging enabled.\n");
+		options().debug = true;
+	}
 
-	inline void disable_debugging() { options().debug = false; }
+	inline void disable_debugging() {
+		_STD_BUILD_VERBOSE_OUTPUT("Debugging disabled.\n");
+		options().debug = false;
+	}
 
 	inline bool debugging_enabled() { return options().debug; }
 
@@ -116,5 +128,20 @@ namespace _STD_BUILD {
 #else
 		return false;
 #endif
+	}
+
+	inline void enable_multithreading(uint16_t thread_count) {
+		_STD_BUILD_VERBOSE_OUTPUT("Multithreading enabled with " << thread_count << " threads.\n");
+		options().tpool.init(thread_count);
+	}
+
+	inline void enable_caching() {
+		_STD_BUILD_VERBOSE_OUTPUT("Caching enabled.\n");
+		options().use_caching = true;
+	}
+
+	inline void disable_caching() {
+		_STD_BUILD_VERBOSE_OUTPUT("Caching disabled.\n");
+		options().use_caching = false;
 	}
 } // namespace _STD_BUILD

@@ -3,6 +3,7 @@
 #include "base.h"
 #include "command.h"
 #include "package.h"
+#include "threadpool.h"
 
 namespace _STD_BUILD {
 
@@ -30,22 +31,29 @@ namespace _STD_BUILD {
 
 	void compile(const fs::path& build_dir, const package& pkg, const path_list& sources) {
 		if(sources.size() > 0) {
+			auto& tpool = options().tpool;
 			_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
 
 			for(const auto& file : sources) {
 				std::stringstream output;
-
 				output << _STD_BUILD_COMPILER << " -c " << pkg.flags;
-
 				for(const auto& i : pkg.include_dirs) {
-					output << "-I" << i << ' ';
+					output << "-I" << i;
 				}
-
 				output << pkg.dir / file.value << " -o " << (build_dir / file.value.stem()).replace_extension(".o");
-				if(command(output.str())) {
-					throw compile_exception("There was an error while compiling: " + file.value.string(), true);
+
+				// If the thread pool has been initialized then add this compilation to it.
+				// If it hasn't, then just run it in this thread.
+				CompileCommand cmd(output.str(), file.value.string());
+				if(tpool.initialized()) {
+					tpool.addTask(std::move(cmd));
+				} else {
+					cmd();
 				}
 			}
+
+			// Wait for all the compilations to complete before continuing.
+			tpool.wait();
 		}
 	}
 

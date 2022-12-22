@@ -87,7 +87,7 @@ namespace _STD_BUILD {
 		/// Stream Functions ///
 		friend std::ostream& operator<<(std::ostream& stream, const list_base<Type>& list) {
 			for(const auto& item : list.get()) {
-				stream << item << ' ';
+				stream << item;
 			}
 			return stream;
 		}

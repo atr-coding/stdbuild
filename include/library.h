@@ -11,7 +11,7 @@ namespace _STD_BUILD {
 	};
 
 	inline _Library_Output create_library(package& pkg) {
-		_STD_BUILD_OUTPUT(pkg.name << " - " << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
+		_STD_BUILD_OUTPUT(pkg.name << " -> " << (pkg.type == header_library ? "header\n" : (pkg.type == static_library ? "static" : "shared")));
 
 		if(pkg.type != header_library && pkg.pre_built == false) {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');

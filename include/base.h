@@ -23,23 +23,25 @@
 #define _STD_BUILD_VERBOSE_OUTPUT(str)
 #endif
 
-#if defined(__clang__)
-#define _STD_BUILD_COMPILER "clang++"
-#elif defined(__GNUC__) || defined(__GNUG__)
 #define _STD_BUILD_COMPILER "g++"
-#elif defined(_MSC_VER)
-#define _STD_BUILD_COMPILER "cl"
-#else
-#error A supported compiler (msvc, g++, clang) must be used.
-#endif
+
+// #if defined(__clang__)
+// #define _STD_BUILD_COMPILER "clang++"
+// #elif defined(__GNUC__) || defined(__GNUG__)
+// #define _STD_BUILD_COMPILER "g++"
+// #elif defined(_MSC_VER)
+// #define _STD_BUILD_COMPILER "cl"
+// #else
+// #error A supported compiler (msvc, g++, clang) must be used.
+// #endif
 
 #define _STD_BUILD_FAILURE() std::exit(1);
 
 // TODO: Disable cache flag. (maybe a option)
 
-#if __cplusplus < 201703L
-#error C++17 is needed for filesystem support.
-#endif
+// #if __cplusplus < 201703L
+// #error C++17 is needed for filesystem support.
+// #endif
 
 namespace _STD_BUILD {
 
@@ -257,17 +259,34 @@ namespace _STD_BUILD {
 		if(!fs::exists(bin)) {
 			try {
 				fs::create_directories(bin);
-			} catch(std::exception& e) { throw build_exception("Failed to create bin directory " + bin.string()); }
+			} catch([[maybe_unused]] const std::exception& e) { throw build_exception("Failed to create bin directory " + bin.string()); }
 		}
 
 		// Create the desired build directory if it doesn't exist already.
 		if(!fs::exists(build)) {
 			try {
 				fs::create_directories(build);
-			} catch(std::exception& e) { throw build_exception("Failed to create build directory " + build.string()); }
+			} catch([[maybe_unused]] const std::exception& e) { throw build_exception("Failed to create build directory " + build.string()); }
 		}
 
 		return true;
 	}
+
+	int command(const std::string& cmd);
+
+	struct CompileCommand {
+		CompileCommand() = default;
+		CompileCommand(const std::string& cmd, const std::string& file_name) : m_cmd(cmd), m_file_name(file_name) {}
+
+		void operator()() const {
+			if(command(m_cmd)) {
+				throw compile_exception("There was an error while compiling: " + m_file_name, true);
+			}
+		}
+
+	private:
+		std::string m_cmd;
+		std::string m_file_name;
+	};
 
 } // namespace _STD_BUILD
