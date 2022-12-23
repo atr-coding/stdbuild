@@ -26,14 +26,10 @@ namespace _STD_BUILD {
 		pkg.pre();
 
 		// Transform libraries include directories by adding the project directory to the beginning.
-		for(auto& id : pkg.include_dirs) {
-			id = { (pkg.dir / id.value).string(), id.access_level };
-		}
+		for(auto& id : pkg.include_dirs) { id = { (pkg.dir / id.value).string(), id.access_level }; }
 
 		// Transform libraries library directories by adding the project directory to the beginning.
-		for(auto& ld : pkg.library_dirs) {
-			ld = { (pkg.dir / ld.value).string(), ld.access_level };
-		}
+		for(auto& ld : pkg.library_dirs) { ld = { (pkg.dir / ld.value).string(), ld.access_level }; }
 
 		if(pkg.pre_built) {
 			_STD_BUILD_OUTPUT(" - prebuilt\n");

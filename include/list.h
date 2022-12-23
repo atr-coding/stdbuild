@@ -99,7 +99,7 @@ namespace _STD_BUILD {
 	template <typename Type>
 	struct ListElement {
 		Type value;
-		access access_level{ access::self };
+		access access_level{ access::all };
 
 		ListElement(const Type& _value) : value(_value) {}
 		ListElement(const Type& _value, access _access_level) : value(_value), access_level(_access_level) {}

@@ -6,7 +6,7 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: true
 AllowShortFunctionsOnASingleLine: true
 AllowShortIfStatementsOnASingleLine: false
-AllowShortLoopsOnASingleLine: false
+AllowShortLoopsOnASingleLine: true
 BasedOnStyle: Google
 BinPackParameters: false
 BreakBeforeBraces: Attach

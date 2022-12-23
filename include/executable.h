@@ -6,6 +6,8 @@
 
 namespace _STD_BUILD {
 
+	void _build_dependencies(package& pkg) {}
+
 	inline void create_executable(package& pkg) {
 
 		// Check if our bin/build directories exist, and if not, create them.
@@ -27,29 +29,25 @@ namespace _STD_BUILD {
 		pkg.pre();
 
 		// Transform include & library directories by prepending the pkg's working directory
-		for(auto& id : pkg.include_dirs) {
-			id = (pkg.dir / id.value);
-		}
-
-		for(auto& ld : pkg.library_dirs) {
-			ld = (pkg.dir / ld.value);
-		}
+		for(auto& id : pkg.include_dirs) { id = (pkg.dir / id.value); }
+		for(auto& ld : pkg.library_dirs) { ld = (pkg.dir / ld.value); }
 
 		// Add all dependency pointers to a vector and remove duplicates with the same name.
 		auto dep = _build_dependency_vector(pkg);
 
 		// Create the libraries and add them to a vector for future iteration
 		std::vector<_Library_Output> libraries;
-		if(dep.size() > 0) {
+		if(!dep.empty()) {
 			_STD_BUILD_VERBOSE_OUTPUT("Building Dependencies: ");
-			for([[maybe_unused]] const auto* p : dep) {
-				_STD_BUILD_VERBOSE_OUTPUT(p->name << ' ');
-			}
+
+			// Just used to display the names of the dependencies
+			for([[maybe_unused]] const auto* p : dep) { _STD_BUILD_VERBOSE_OUTPUT(p->name << ' '); }
+
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 			for(package* d : dep) {
 				libraries.push_back(create_library(*d));
 
-				// Add this dependencies include/lib directories to our main pkg's include/lib directories
+				// Add this dependencies include/lib directories/libraries to our main pkg's include/lib directories
 				for(const auto& inc_dir : d->include_dirs) {
 					if(inc_dir.access_level == access::all) {
 						pkg.include_dirs.add(inc_dir);
@@ -59,6 +57,12 @@ namespace _STD_BUILD {
 				for(const auto& lib_dir : d->library_dirs) {
 					if(lib_dir.access_level == access::all) {
 						pkg.library_dirs.add(lib_dir);
+					}
+				}
+
+				for(const auto& lib : d->libraries) {
+					if(lib.access_level == access::all) {
+						pkg.libraries.add(lib);
 					}
 				}
 			}
@@ -109,19 +113,12 @@ namespace _STD_BUILD {
 			}
 		}
 
-		for(const auto& lib_dir : pkg.library_dirs) {
-			ls << "-L" << lib_dir.value << ' ';
-		}
-
-		for(const auto& lib : pkg.libraries) {
-			ls << "-l" << lib.value << ' ';
-		}
+		for(const auto& lib_dir : pkg.library_dirs) { lds << "-L" << lib_dir.value << ' '; }
+		for(const auto& lib : pkg.libraries) { ls << "-l" << lib.value << ' '; }
 
 		// Convert all source file names into corresponding object file names.
 		std::stringstream obj_files;
-		for(const auto& source : pkg.sources) {
-			obj_files << (pkg_build_dir / (source.value.stem().replace_extension(".o"))).string() << ' ';
-		}
+		for(const auto& source : pkg.sources) { obj_files << (pkg_build_dir / (source.value.stem().replace_extension(".o"))).string() << ' '; }
 
 		_STD_BUILD_VERBOSE_OUTPUT("Linking...");
 		std::stringstream output;
