@@ -6,14 +6,7 @@
 
 namespace _STD_BUILD {
 
-	void _build_dependencies(package& pkg) {}
-
 	inline void create_executable(package& pkg) {
-
-		// Check if our bin/build directories exist, and if not, create them.
-		// Throws if the directories could not be created.
-		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
-
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto pkg_build_dir = build_dir / pkg.name;

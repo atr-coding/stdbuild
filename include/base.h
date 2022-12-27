@@ -13,6 +13,7 @@
 #include <utility>
 #include <memory>
 #include <exception>
+#include <functional>
 
 #define _STD_BUILD stdbuild
 #define _STD_BUILD_OUTPUT(str) std::cout << str;

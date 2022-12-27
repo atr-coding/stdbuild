@@ -17,8 +17,6 @@ namespace _STD_BUILD {
 			_STD_BUILD_VERBOSE_OUTPUT('\n');
 		}
 
-		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
-
 		auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto project_build_dir = build_dir / pkg.name;

@@ -3,6 +3,7 @@
 #include "base.h"
 #include "list.h"
 #include "version.h"
+#include "dependency.h"
 
 namespace _STD_BUILD {
 
@@ -20,6 +21,11 @@ namespace _STD_BUILD {
 		path dir{ "." };
 		library_type type{ executable };
 		bool pre_built{ false };
+		external_dependency_list external_dependencies;
+
+		using url = _pkg_url;
+		using branch = _pkg_branch;
+		using commit = _pkg_commit;
 
 		virtual void pre(){};
 		virtual void post(){};

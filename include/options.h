@@ -14,6 +14,7 @@ namespace _STD_BUILD {
 		bool debug{ false };
 		ThreadPool<CompileCommand> tpool;
 		bool use_caching{ true };
+		fs::path package_directory{ "packages/" };
 
 		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
 		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
@@ -27,11 +28,7 @@ namespace _STD_BUILD {
 		return opt;
 	}
 
-	inline void set_build_directory(fs::path path) {
-		if(!fs::exists(path)) {
-			fs::create_directory(path);
-		}
-
+	inline void set_build_directory(const fs::path& path) {
 		options().build_dir = path;
 		// options().output_file = (path / "output").string();
 		options().error_file = (path / "error").string();
@@ -39,13 +36,9 @@ namespace _STD_BUILD {
 		//">" + options().output_file + " 2>" + options().error_file;
 	}
 
-	inline void set_bin_directory(fs::path path) {
-		if(!fs::exists(path)) {
-			fs::create_directory(path);
-		}
+	inline void set_bin_directory(const fs::path& path) { options().bin_dir = path; }
 
-		options().bin_dir = path;
-	}
+	inline void set_package_directory(const fs::path& path) { options().package_directory = path; }
 
 	inline void set_option(const std::string& opt, bool value) {
 		_STD_BUILD_VERBOSE_OUTPUT("Option: [" << opt << ", " << std::boolalpha << value << "]\n");
