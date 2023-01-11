@@ -7,12 +7,16 @@
 namespace _STD_BUILD {
 
 	inline void create_executable(package& pkg) {
+		// Check if our bin/build directories exist, and if not, create them.
+		// Throws if the directories could not be created.
+		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
+		
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto pkg_build_dir = build_dir / pkg.name;
 
-		_STD_BUILD_OUTPUT(pkg.name << " -> " << (bin_dir / pkg.name));
-		_STD_BUILD_VERBOSE_OUTPUT('\n');
+		_STD_BUILD_OUTPUT(pkg.name << " -> exe -> " << (bin_dir / pkg.name) << '\n');
+		//_STD_BUILD_VERBOSE_OUTPUT('\n');
 
 		// Verify that we have source files to work with.
 		if(pkg.sources.size() == 0) {
@@ -62,32 +66,31 @@ namespace _STD_BUILD {
 		}
 
 		// Load Cache
-		// TODO: Improve the performance of this by moving from pkg.sources instead of copying.
-		path_list files_to_compile;
 		__cache::cache_storage cache;
 		const auto cache_path = build_dir / pkg.name / "cache";
+		path_list files_to_compile = __cache::load_cache(cache_path, cache, pkg);
 
-		if(options().use_caching) {
-			_STD_BUILD_OUTPUT("Loading cache: ");
+		//if(options().use_caching) {
+		//	_STD_BUILD_VERBOSE_OUTPUT("Loading cache: ");
 
-			const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg.include_dirs, pkg.sources);
-			if(initialized) {
-				files_to_compile = pkg.sources;
-				cache = new_cache;
-			} else {
-				if(!cache.load_from_file(cache_path)) {
-					files_to_compile = pkg.sources;
-					_STD_BUILD_OUTPUT("failed to load file.\n");
-				} else {
-					cache.test(pkg.sources);
-					files_to_compile += cache.changes.added;
-					files_to_compile += cache.changes.modified;
-					_STD_BUILD_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size() << " changes]\n");
-				}
-			}
-		} else {
-			files_to_compile = pkg.sources;
-		}
+		//	const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg.include_dirs, pkg.sources);
+		//	if(initialized) {
+		//		files_to_compile = std::move(pkg.sources);
+		//		cache = new_cache;
+		//	} else {
+		//		if(!cache.load_from_file(cache_path)) {
+		//			files_to_compile = std::move(pkg.sources);
+		//			_STD_BUILD_VERBOSE_OUTPUT("failed to load file.\n");
+		//		} else {
+		//			cache.test(pkg.sources);
+		//			files_to_compile += cache.changes.added;
+		//			files_to_compile += cache.changes.modified;
+		//			_STD_BUILD_VERBOSE_OUTPUT("complete [" << files_to_compile.size() + cache.changes.removed.size() << " changes]\n");
+		//		}
+		//	}
+		//} else {
+		//	files_to_compile = std::move(pkg.sources);
+		//}
 
 		// Add debug flag
 		if(debugging_enabled()) {

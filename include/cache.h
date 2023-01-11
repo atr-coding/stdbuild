@@ -3,6 +3,7 @@
 #include "base.h"
 #include "options.h"
 #include "list.h"
+#include "package.h"
 
 namespace _STD_BUILD {
 	namespace __cache {
@@ -64,11 +65,9 @@ namespace _STD_BUILD {
 			}
 
 			std::stringstream ss;
-			ss << "Failed to find the file: " << file.string() << " in the parent directory: " << parent_dir
-			   << " or in any of the include directories: \n";
-			for(const auto& id : include_directories) {
-				ss << id.value << '\n';
-			}
+			ss << "Failed to find the file: " << file << " in any of the following directories:\n";
+			ss << "  " << parent_dir << '\n';
+			for(const auto& id : include_directories) { ss << "  " << id.value << '\n'; }
 
 			throw cache_exception(ss.str());
 		};
@@ -89,8 +88,13 @@ namespace _STD_BUILD {
 				while(std::getline(file, line)) {
 
 					if(line.substr(0, 8) == "#include") {
-						line = line.substr(8 + (line.at(8) == ' ' ? 1 : 0)); // remove "#include", and if it exists, remove whitespace after it
-						line = line.substr(1, line.size() - 2);              // remove the <> or ""
+						// removes "#include", the whitespace after it (if it exists)
+						line = line.substr(8 + (line.at(8) == ' ' ? 1 : 0));
+						std::string::size_type pos = line.find(line.at(0) == '<' ? '>' : '"', 1);
+						if(pos == std::string::npos) { // if a trialing char isn't found, then skip this line
+							continue;
+						}
+						line = line.substr(1, pos-1);
 
 						// check if the include file is part of the standard library or not
 						if(!is_standard_library_header(line)) {
@@ -102,7 +106,7 @@ namespace _STD_BUILD {
 								for(const auto& sub_include_path : get_includes_unsorted(include_directories, file_path)) {
 									includes.get().push_back(sub_include_path);
 								}
-							} catch(cache_exception& e) { _STD_BUILD_VERBOSE_OUTPUT(e.what() << '\n' << "Ignoring file in cache.\n"); }
+							} catch(cache_exception& e) { _STD_BUILD_VERBOSE_OUTPUT(e.what()); }
 						}
 					}
 				}
@@ -151,9 +155,7 @@ namespace _STD_BUILD {
 				serialization::write_size_t(stream, block.dependent_files.size());
 
 				// iterate through list of dependent files and write their paths out
-				for(const auto& source : block.dependent_files) {
-					serialization::write_string(stream, source.value.string());
-				}
+				for(const auto& source : block.dependent_files) { serialization::write_string(stream, source.value.string()); }
 
 				return stream;
 			}
@@ -330,14 +332,10 @@ namespace _STD_BUILD {
 			friend std::ofstream& operator<<(std::ofstream& stream, const cache_storage& cache) {
 				// Write source file last write times
 				serialization::write_size_t(stream, cache.source_files.size());
-				for(const auto& source_file : cache.source_files) {
-					stream << source_file;
-				}
+				for(const auto& source_file : cache.source_files) { stream << source_file; }
 				// Write header file last write times
 				serialization::write_size_t(stream, cache.header_files.size());
-				for(const auto& header_file : cache.header_files) {
-					stream << header_file;
-				}
+				for(const auto& header_file : cache.header_files) { stream << header_file; }
 
 				return stream;
 			}
@@ -372,50 +370,41 @@ namespace _STD_BUILD {
 				stream << "Source files:\n";
 				for(const auto& source_file : cache.source_files) {
 					stream << '\t' << source_file.path.string() << '\n';
-					for(const auto& dep : source_file.dependent_files) {
-						stream << "\t\t" << dep.value.string() << '\n';
-					}
+					for(const auto& dep : source_file.dependent_files) { stream << "\t\t" << dep.value.string() << '\n'; }
 				}
 				stream << "Header files:\n";
 				for(const auto& header_file : cache.header_files) {
 					stream << '\t' << header_file.path.string() << '\n';
-					for(const auto& dep : header_file.dependent_files) {
-						stream << "\t\t" << dep.value.string() << '\n';
-					}
+					for(const auto& dep : header_file.dependent_files) { stream << "\t\t" << dep.value.string() << '\n'; }
 				}
 
 				stream << "Added:\n";
-				for(const auto& added : cache.changes.added) {
-					stream << '\t' << added << '\n';
-				}
+				for(const auto& added : cache.changes.added) { stream << '\t' << added << '\n'; }
 
 				stream << "Removed:\n";
-				for(const auto& removed : cache.changes.removed) {
-					stream << '\t' << removed << '\n';
-				}
+				for(const auto& removed : cache.changes.removed) { stream << '\t' << removed << '\n'; }
 
 				stream << "Modified:\n";
-				for(const auto& modified : cache.changes.modified) {
-					stream << '\t' << modified << '\n';
-				}
+				for(const auto& modified : cache.changes.modified) { stream << '\t' << modified << '\n'; }
 				stream << "------------------------------\n";
 				return stream;
 			}
 		};
 
-		cache_storage build(const path_list& include_directories, const path_list& cpp_files) {
+		cache_storage build(const package& pkg) {
 			std::unordered_map<fs::path, path_list> cpp_file_dependencies;
-			for(const auto& file : cpp_files) {
+			for(const auto& file : pkg.sources) {
 				// Iterate through every file and verify it exists.
-				if(fs::exists(file.value)) {
+				const auto full_file_path = (pkg.dir / file.value).lexically_normal();
+				if(fs::exists(full_file_path)) {
 					// Clean up the slashes uses lexically normal.
-					const auto lexically_normal_file_path = file.value.lexically_normal();
+					// const auto lexically_normal_file_path = abs_file_path.lexically_normal();
 
 					// Recursively get all the header files associated with this source file and add them to the source
 					// files dependents list.
-					cpp_file_dependencies[lexically_normal_file_path] = get_includes(include_directories, lexically_normal_file_path);
+					cpp_file_dependencies[full_file_path] = get_includes(pkg.include_dirs, full_file_path);
 				} else {
-					_STD_BUILD_OUTPUT("File " << file.value << " was not found and cannot be added to the cache.\n");
+					_STD_BUILD_VERBOSE_OUTPUT("File " << full_file_path << " was not found and cannot be added to the cache.\n");
 				}
 			}
 
@@ -435,18 +424,12 @@ namespace _STD_BUILD {
 
 			cache_storage cache;
 
-			for(const auto& source : cpp_files) {
-				cache.source_files.push_back({ source.value.lexically_normal() });
-			}
+			for(const auto& source : pkg.sources) { cache.source_files.push_back({ (pkg.dir / source.value).lexically_normal() }); }
 
-			for(const auto& header : headers) {
-				cache.header_files.push_back({ header.first, get_lwt(header.first), header.second });
-			}
+			for(const auto& header : headers) { cache.header_files.push_back({ header.first, get_lwt(header.first), header.second }); }
 
 			return cache;
 		}
-
-		inline bool cache_exists(const fs::path& file_path) { return fs::exists(file_path); }
 
 		// The initialize_cache method is to be called at the start of every build.
 		// It needs to check if a cache file already exists, and if not, then take the
@@ -456,17 +439,41 @@ namespace _STD_BUILD {
 		// TODO: A cache needs to be built for every package, so this needs to be called at the top of every
 		// create_library/create_executable.
 		// Return: true if cache was initialized, false is a cache already exists
-		std::pair<bool, cache_storage> initialize_cache(const fs::path& cache_file_path,
-		                                                const path_list& include_directories,
-		                                                const path_list& cpp_files) {
-			if(cache_exists(cache_file_path) == false) {
-				_STD_BUILD_OUTPUT("file not found, creating new cache...");
-				auto cache = build(include_directories, cpp_files);
+		std::pair<bool, cache_storage> initialize_cache(const fs::path& cache_file_path, const package& pkg) {
+			if(fs::exists(cache_file_path) == false) {
+				auto cache = build(pkg);
 				cache.write_to_file(cache_file_path);
-				_STD_BUILD_OUTPUT("complete.\n");
 				return { true, cache };
 			}
 			return { false, {} };
+		}
+
+		path_list load_cache(const fs::path& cache_path, cache_storage& cache, const package& pkg) {
+			if(options().use_caching) {
+				_STD_BUILD_VERBOSE_OUTPUT("Loading cache -> " << cache_path.lexically_normal() << '\n');
+
+				const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg);
+				if(initialized) {
+					_STD_BUILD_VERBOSE_OUTPUT("  Status: New cache created.\n");
+					cache = new_cache;
+					return std::move(pkg.sources);
+				} else {
+					if(!cache.load_from_file(cache_path)) {
+						_STD_BUILD_VERBOSE_OUTPUT("  Status: Failed to load file.\n");
+						return std::move(pkg.sources);
+					} else {
+						cache.test(pkg.sources);
+						path_list changes;
+						changes += cache.changes.added;
+						changes += cache.changes.modified;
+						_STD_BUILD_VERBOSE_OUTPUT("  Status: Success [+" << cache.changes.added.size() << " -" << cache.changes.removed.size() << " *"
+						                                                 << cache.changes.modified.size() << "]\n");
+						return std::move(changes);
+					}
+				}
+			} else {
+				return std::move(pkg.sources);
+			}
 		}
 	} // namespace __cache
 } // namespace _STD_BUILD

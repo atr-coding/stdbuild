@@ -193,6 +193,7 @@ namespace _STD_BUILD {
 		"assert.h",
 		"crtdbg.h",
 		"Windows.h",
+		"windows.h",
 		"concepts",
 	};
 
