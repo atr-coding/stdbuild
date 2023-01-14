@@ -157,7 +157,7 @@ int main(int argc, char** argv) {
 		if(ret) {
 			return 1; // cause stdbuild to fail if the build fails
 		}
-		std::system("del stdbuild-autogen.exe");
+		// std::system("del stdbuild-autogen.exe");
 	} else {
 		std::cout << "Failed to generate stdbuild-autogen.\n";
 	}
