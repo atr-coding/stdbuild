@@ -122,9 +122,6 @@ namespace _STD_BUILD {
 		_STD_BUILD_VERBOSE_OUTPUT('\n');
 		if(command(output.str())) {
 			throw executable_exception("There was an error during linking.", true);
-		} else {
-			_STD_BUILD_VERBOSE_OUTPUT("output");
-			_STD_BUILD_OUTPUT(" - " << (bin_dir / pkg.name).string() << '\n');
 		}
 
 		// Update cache
