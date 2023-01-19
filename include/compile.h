@@ -24,7 +24,8 @@ namespace _STD_BUILD {
 
 		// Remove duplicates.
 		std::sort(dep.begin(), dep.end(), [](const auto* a, const auto* b) { return (*a < *b); });
-		dep.erase(std::unique(dep.begin(), dep.end(), [](const auto* a, const auto* b) { return (*a == *b); }), dep.end());
+		dep.erase(std::unique(dep.begin(), dep.end(), [](const auto* a, const auto* b) { return (*a == *b); }),
+		          dep.end());
 
 		return dep;
 	}
@@ -32,14 +33,12 @@ namespace _STD_BUILD {
 	void compile(const fs::path& build_dir, const package& pkg, const path_list& sources) {
 		if(sources.size() > 0) {
 			auto& tpool = options().tpool;
-			_STD_BUILD_VERBOSE_OUTPUT("Compiling...\n");
+			_STD_BUILD_VERBOSE_OUTPUT("  Compiling...\n");
 
 			for(const auto& file : sources) {
 				std::stringstream output;
 				output << _STD_BUILD_COMPILER << " -c " << pkg.flags;
-				for(const auto& i : pkg.include_dirs) {
-					output << "-I" << i;
-				}
+				for(const auto& i : pkg.include_dirs) { output << "-I" << i; }
 				output << pkg.dir / file.value << " -o " << (build_dir / file.value.stem()).replace_extension(".o");
 
 				// If the thread pool has been initialized then add this compilation to it.

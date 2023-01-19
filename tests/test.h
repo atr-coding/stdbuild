@@ -41,4 +41,4 @@ constexpr test_monad _test(bool condition) {
 	return { condition };
 }
 
-#define test(condition, msg) if(!(condition) && std::strlen(msg) > 0) { print_error_msg(msg); } _test(condition)
+#define test(condition, msg) if(!(condition) && std::strlen(msg) > 0) { print_error_msg(msg); } (test_monad(condition))

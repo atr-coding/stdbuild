@@ -20,6 +20,4 @@ struct project : stdbuild::package {
 	}
 };
 
-int main() {
-	stdbuild::create<project>();
-}
+int main() { stdbuild::create<project>(); }

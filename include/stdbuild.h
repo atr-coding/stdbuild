@@ -10,8 +10,7 @@
 #include "package.h"
 #include "version.h"
 #include "link.h"
-#include "library.h"
-#include "executable.h"
+#include "binary.h"
 #include "dependency.h"
 #include "package_manager.h"
 

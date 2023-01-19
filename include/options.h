@@ -11,10 +11,12 @@ namespace _STD_BUILD {
 		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
 		// std::string output_file{ "build/output" };
 		std::string error_file{ "build/error" };
-		bool debug{ false };
 		ThreadPool<CompileCommand> tpool;
-		bool use_caching{ true };
 		fs::path package_directory{ "packages/" };
+		bool debug{ false };
+		bool use_caching{ true };
+		bool use_verbose_output{ false };
+		bool run_after_build{ false };
 
 		void set(const std::string& opt, bool value) { _user_defined_opts[opt] = value; }
 		bool get(const std::string& opt) { return _user_defined_opts[opt]; }
@@ -115,13 +117,7 @@ namespace _STD_BUILD {
 #endif
 	}
 
-	inline bool running_after_build() {
-#ifdef _STD_BUILD_RUN
-		return true;
-#else
-		return false;
-#endif
-	}
+	inline void run_after_build(bool value) { options().run_after_build = value; }
 
 	inline void enable_multithreading(uint16_t thread_count) {
 		_STD_BUILD_VERBOSE_OUTPUT("Multithreading enabled with " << thread_count << " threads.\n");
@@ -137,4 +133,8 @@ namespace _STD_BUILD {
 		_STD_BUILD_VERBOSE_OUTPUT("Caching disabled.\n");
 		options().use_caching = false;
 	}
+
+	inline void enable_verbose_output() { options().use_verbose_output = true; }
+
+	inline void disable_verbose_output() { options().use_verbose_output = false; }
 } // namespace _STD_BUILD

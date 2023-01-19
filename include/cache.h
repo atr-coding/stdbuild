@@ -25,10 +25,18 @@ namespace _STD_BUILD {
 				stream.read(str.data(), size);
 			}
 
-			void write_int64_t(std::ofstream& stream, const int64_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(int64_t)); }
-			void read_int64_t(std::ifstream& stream, int64_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(int64_t)); }
-			void write_size_t(std::ofstream& stream, const std::size_t i) { stream.write(reinterpret_cast<const char*>(&i), sizeof(std::size_t)); }
-			void read_size_t(std::ifstream& stream, std::size_t& i) { stream.read(reinterpret_cast<char*>(&i), sizeof(std::size_t)); }
+			void write_int64_t(std::ofstream& stream, const int64_t i) {
+				stream.write(reinterpret_cast<const char*>(&i), sizeof(int64_t));
+			}
+			void read_int64_t(std::ifstream& stream, int64_t& i) {
+				stream.read(reinterpret_cast<char*>(&i), sizeof(int64_t));
+			}
+			void write_size_t(std::ofstream& stream, const std::size_t i) {
+				stream.write(reinterpret_cast<const char*>(&i), sizeof(std::size_t));
+			}
+			void read_size_t(std::ifstream& stream, std::size_t& i) {
+				stream.read(reinterpret_cast<char*>(&i), sizeof(std::size_t));
+			}
 
 		} // namespace serialization
 
@@ -94,16 +102,18 @@ namespace _STD_BUILD {
 						if(pos == std::string::npos) { // if a trialing char isn't found, then skip this line
 							continue;
 						}
-						line = line.substr(1, pos-1);
+						line = line.substr(1, pos - 1);
 
 						// check if the include file is part of the standard library or not
 						if(!is_standard_library_header(line)) {
 							try {
-								const fs::path file_path = find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
+								const fs::path file_path =
+								    find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
 								includes.get().push_back(file_path);
 
 								// Check if the dependency has dependencies.
-								for(const auto& sub_include_path : get_includes_unsorted(include_directories, file_path)) {
+								for(const auto& sub_include_path :
+								    get_includes_unsorted(include_directories, file_path)) {
 									includes.get().push_back(sub_include_path);
 								}
 							} catch(cache_exception& e) { _STD_BUILD_VERBOSE_OUTPUT(e.what()); }
@@ -143,9 +153,13 @@ namespace _STD_BUILD {
 
 			operator ListElement<fs::path>() { return ListElement<fs::path>{ path }; }
 			bool operator==(const ListElement<fs::path>& file) { return (path == file.value); }
-			friend bool operator==(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) { return (file.value == lwtfb.path); }
+			friend bool operator==(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
+				return (file.value == lwtfb.path);
+			}
 			bool operator<(const ListElement<fs::path>& file) { return (path < file.value); }
-			friend bool operator<(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) { return (file.value < lwtfb.path); }
+			friend bool operator<(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
+				return (file.value < lwtfb.path);
+			}
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
 				serialization::write_string(stream, block.path.string());
@@ -155,7 +169,9 @@ namespace _STD_BUILD {
 				serialization::write_size_t(stream, block.dependent_files.size());
 
 				// iterate through list of dependent files and write their paths out
-				for(const auto& source : block.dependent_files) { serialization::write_string(stream, source.value.string()); }
+				for(const auto& source : block.dependent_files) {
+					serialization::write_string(stream, source.value.string());
+				}
 
 				return stream;
 			}
@@ -184,7 +200,12 @@ namespace _STD_BUILD {
 		};
 
 		template <typename _InIt, typename _InIt2, typename _OutIt>
-		void find_differences(const _InIt begin1, const _InIt end1, const _InIt2 begin2, const _InIt2 end2, _OutIt add, _OutIt sub) {
+		void find_differences(const _InIt begin1,
+		                      const _InIt end1,
+		                      const _InIt2 begin2,
+		                      const _InIt2 end2,
+		                      _OutIt add,
+		                      _OutIt sub) {
 			for(_InIt temp = begin1; temp != end1; ++temp) {
 				if(std::find(begin2, end2, *temp) == end2) {
 					*add++ = *temp;
@@ -276,13 +297,15 @@ namespace _STD_BUILD {
 							auto it2 = std::find(header_files.begin(), header_files.end(), dep_header);
 							if(it2 != header_files.end()) {
 								// If it does then check if this header has the source in its dependency list.
-								auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(), modded_file);
+								auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(),
+								                     modded_file);
 								if(it3 == (*it2).dependent_files.end()) {
 									// File doesn't exist in the headers dependency list, so add it.
 									(*it2).dependent_files.add(modded_file);
 								}
 							} else {
-								header_files.push_back({ dep_header.value, get_lwt(dep_header.value), { modded_file } });
+								header_files.push_back(
+								    { dep_header.value, get_lwt(dep_header.value), { modded_file } });
 							}
 						}
 					}
@@ -312,7 +335,8 @@ namespace _STD_BUILD {
 						for(const auto& header : (*it).dependent_files) {
 							const auto it2 = std::find(header_files.begin(), header_files.end(), header);
 							if(it2 != header_files.end()) {
-								const auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(), removed_file);
+								const auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(),
+								                           removed_file);
 								if(it3 != (*it2).dependent_files.end()) {
 									(*it2).dependent_files.get().erase(it3);
 								}
@@ -370,12 +394,16 @@ namespace _STD_BUILD {
 				stream << "Source files:\n";
 				for(const auto& source_file : cache.source_files) {
 					stream << '\t' << source_file.path.string() << '\n';
-					for(const auto& dep : source_file.dependent_files) { stream << "\t\t" << dep.value.string() << '\n'; }
+					for(const auto& dep : source_file.dependent_files) {
+						stream << "\t\t" << dep.value.string() << '\n';
+					}
 				}
 				stream << "Header files:\n";
 				for(const auto& header_file : cache.header_files) {
 					stream << '\t' << header_file.path.string() << '\n';
-					for(const auto& dep : header_file.dependent_files) { stream << "\t\t" << dep.value.string() << '\n'; }
+					for(const auto& dep : header_file.dependent_files) {
+						stream << "\t\t" << dep.value.string() << '\n';
+					}
 				}
 
 				stream << "Added:\n";
@@ -404,7 +432,8 @@ namespace _STD_BUILD {
 					// files dependents list.
 					cpp_file_dependencies[full_file_path] = get_includes(pkg.include_dirs, full_file_path);
 				} else {
-					_STD_BUILD_VERBOSE_OUTPUT("File " << full_file_path << " was not found and cannot be added to the cache.\n");
+					_STD_BUILD_VERBOSE_OUTPUT("File " << full_file_path
+					                                  << " was not found and cannot be added to the cache.\n");
 				}
 			}
 
@@ -424,9 +453,13 @@ namespace _STD_BUILD {
 
 			cache_storage cache;
 
-			for(const auto& source : pkg.sources) { cache.source_files.push_back({ (pkg.dir / source.value).lexically_normal() }); }
+			for(const auto& source : pkg.sources) {
+				cache.source_files.push_back({ (pkg.dir / source.value).lexically_normal() });
+			}
 
-			for(const auto& header : headers) { cache.header_files.push_back({ header.first, get_lwt(header.first), header.second }); }
+			for(const auto& header : headers) {
+				cache.header_files.push_back({ header.first, get_lwt(header.first), header.second });
+			}
 
 			return cache;
 		}
@@ -450,24 +483,25 @@ namespace _STD_BUILD {
 
 		path_list load_cache(const fs::path& cache_path, cache_storage& cache, const package& pkg) {
 			if(options().use_caching) {
-				_STD_BUILD_VERBOSE_OUTPUT("Loading cache -> " << cache_path.lexically_normal() << '\n');
+				_STD_BUILD_VERBOSE_OUTPUT("  Loading cache from " << cache_path.lexically_normal().string() << '\n');
 
 				const auto [initialized, new_cache] = __cache::initialize_cache(cache_path, pkg);
 				if(initialized) {
-					_STD_BUILD_VERBOSE_OUTPUT("  Status: New cache created.\n");
+					_STD_BUILD_VERBOSE_OUTPUT("    Status: New cache created.\n");
 					cache = new_cache;
 					return std::move(pkg.sources);
 				} else {
 					if(!cache.load_from_file(cache_path)) {
-						_STD_BUILD_VERBOSE_OUTPUT("  Status: Failed to load file.\n");
+						_STD_BUILD_VERBOSE_OUTPUT("    Status: Failed to load file.\n");
 						return std::move(pkg.sources);
 					} else {
 						cache.test(pkg.sources);
 						path_list changes;
 						changes += cache.changes.added;
 						changes += cache.changes.modified;
-						_STD_BUILD_VERBOSE_OUTPUT("  Status: Success [+" << cache.changes.added.size() << " -" << cache.changes.removed.size() << " *"
-						                                                 << cache.changes.modified.size() << "]\n");
+						_STD_BUILD_VERBOSE_OUTPUT("    Status: Success [+" << cache.changes.added.size() << " -"
+						                                                   << cache.changes.removed.size() << " *"
+						                                                   << cache.changes.modified.size() << "]\n");
 						return std::move(changes);
 					}
 				}

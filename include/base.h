@@ -18,11 +18,10 @@
 #define _STD_BUILD stdbuild
 #define _STD_BUILD_OUTPUT(str) std::cout << str;
 
-#ifdef _STD_BUILD_VERBOSE
-#define _STD_BUILD_VERBOSE_OUTPUT(str) std::cout << str
-#else
-#define _STD_BUILD_VERBOSE_OUTPUT(str)
-#endif
+#define _STD_BUILD_VERBOSE_OUTPUT(msg) \
+	if(options().use_verbose_output) { \
+		_STD_BUILD_OUTPUT(msg)         \
+	}
 
 #define _STD_BUILD_COMPILER "g++"
 
@@ -36,7 +35,8 @@
 // #error A supported compiler (msvc, g++, clang) must be used.
 // #endif
 
-#define _STD_BUILD_FAILURE() std::exit(1);
+#define _STD_BUILD_FAIL() std::exit(1);
+#define _STD_BUILD_LOG_AND_FAIL(msg) _STD_BUILD_OUTPUT(msg) _STD_BUILD_FAIL()
 
 // TODO: Disable cache flag. (maybe a option)
 
@@ -254,21 +254,27 @@ namespace _STD_BUILD {
 
 	/// Exceptions end ///
 
-	bool _verify_bin_and_build_directories(const fs::path& bin_dir, const fs::path& build_dir, const std::string& project_name) {
+	bool _verify_bin_and_build_directories(const fs::path& bin_dir,
+	                                       const fs::path& build_dir,
+	                                       const std::string& project_name) {
 		const auto& bin = bin_dir;
 		const auto& build = build_dir / project_name;
 		// Create the desired bin directory if it doesn't exist already.
 		if(!fs::exists(bin)) {
 			try {
 				fs::create_directories(bin);
-			} catch([[maybe_unused]] const std::exception& e) { throw build_exception("Failed to create bin directory " + bin.string()); }
+			} catch([[maybe_unused]] const std::exception& e) {
+				throw build_exception("Failed to create bin directory " + bin.string());
+			}
 		}
 
 		// Create the desired build directory if it doesn't exist already.
 		if(!fs::exists(build)) {
 			try {
 				fs::create_directories(build);
-			} catch([[maybe_unused]] const std::exception& e) { throw build_exception("Failed to create build directory " + build.string()); }
+			} catch([[maybe_unused]] const std::exception& e) {
+				throw build_exception("Failed to create build directory " + build.string());
+			}
 		}
 
 		return true;
