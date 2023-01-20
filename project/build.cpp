@@ -4,12 +4,14 @@
 #include "../include/stdbuild.h"
 #include "packages/packages.h"
 
-struct project : stdbuild::package {
+using namespace stdbuild;
+
+struct project : package {
 	project() {
 		name = "project";
 		flags = { "-std=c++20", "-DTEST_DEF" };
 
-		if(stdbuild::is_gcc() || stdbuild::is_clang()) {
+		if(is_gcc() || is_clang()) {
 			flags += { "-Wall", "-Wextra", "-Wshadow", "-Wconversion", "-Wpedantic", "-Werror" };
 		} else if(stdbuild::is_msvc()) {
 			flags += { "/permissive", "/W4", "/w14640" };
@@ -20,4 +22,8 @@ struct project : stdbuild::package {
 	}
 };
 
-int main() { stdbuild::create<project>(); }
+int main() {
+	enable_verbose_output();
+	run_after_build(true);
+	create<project>();
+}

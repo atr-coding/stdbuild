@@ -284,7 +284,13 @@ namespace _STD_BUILD {
 
 	struct CompileCommand {
 		CompileCommand() = default;
-		CompileCommand(const std::string& cmd, const std::string& file_name) : m_cmd(cmd), m_file_name(file_name) {}
+		explicit CompileCommand(const std::string& cmd, const std::string& file_name) : m_cmd(cmd), m_file_name(file_name) {}
+
+		void execute() const {
+			if(command(m_cmd)) {
+				throw compile_exception("There was an error while compiling: " + m_file_name, true);
+			}
+		}
 
 		void operator()() const {
 			if(command(m_cmd)) {

@@ -18,26 +18,19 @@ namespace _STD_BUILD {
 	// This function acts as an entry point where we can put anything that we want to run
 	// before any build regardless of type.
 	void _init(const package& pkg) {
+		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
 		_get_external_dependencies(pkg);
 	}
 
 	void create(package& pkg) {
 		_init(pkg);
-		if (pkg.type == library_type::EXECUTABLE) {
-			create_executable(pkg);
-		} else {
-			create_library(pkg);
-		}
+		Compiler compiler(compilers::gcc);
+		create_binary(compiler, pkg, true);
 	}
 
 	template<typename T, typename... Args>
 	void create(Args... args) {
 		T pkg(std::forward<Args>(args)...);
-		_init(pkg);
-		if(pkg.type == library_type::EXECUTABLE) {
-			create_executable(pkg);
-		} else {
-			create_library(pkg);
-		}
+		create(pkg);
 	}
 }

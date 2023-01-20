@@ -11,8 +11,9 @@ namespace _STD_BUILD {
 	using package_list = list_base<package>;
 
 	struct package {
-		package() = default;
-		explicit package(const std::string& _name) : name(_name) {}
+		package() noexcept = default;
+		explicit package(const std::string& _name) noexcept : name(_name) {}
+		virtual ~package() noexcept {};
 		string_list flags, libraries;
 		path_list include_dirs, library_dirs, sources;
 		package_list pkgs;
@@ -30,8 +31,8 @@ namespace _STD_BUILD {
 		virtual void pre(){};
 		virtual void post(){};
 
-		bool operator<(const package& other) const { return (name < other.name); }
-		bool operator==(const package& other) const { return (name == other.name); }
+		bool operator<(const package& other) const noexcept { return (name < other.name); }
+		bool operator==(const package& other) const noexcept { return (name == other.name); }
 	};
 
 } // namespace _STD_BUILD

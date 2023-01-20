@@ -34,6 +34,7 @@ namespace _STD_BUILD {
 		std::size_t size() const { return m_items.size(); }
 		std::size_t size() { return m_items.size(); }
 		void add(const Type& item) { m_items.push_back(item); }
+		bool has(const Type& item) { return std::find(m_items.begin(), m_items.end(), item) != m_items.end(); }
 
 		// TODO: improve this
 		template <typename _Type = Type>
