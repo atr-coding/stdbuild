@@ -55,15 +55,15 @@ void generate_project_template(const std::string& name) {
 
 		std::stringstream build_file;
 		build_file << "#include <stdbuild.h>\n\n";
-		build_file << "struct " << cleaned_name << " : stdbuild::package {\n";
+		build_file << "using namespace stdbuild;\n\n";
+		build_file << "struct " << cleaned_name << " : package {\n";
 		build_file << '\t' << cleaned_name << "() {\n";
 		build_file << "\t\tname = \"" << cleaned_name << "\";\n";
 		build_file << "\t\tsources = { \"src/main.cpp\" };\n";
 		build_file << "\t}\n";
 		build_file << "};\n\n";
 		build_file << "int main() {\n";
-		build_file << "\tauto project = " << cleaned_name << "();\n";
-		build_file << "\tstdbuild::create_executable(project);\n";
+		build_file << "\tcreate<" << cleaned_name << ">();\n";
 		build_file << "}";
 
 		std::ofstream buildcpp("build.cpp");
@@ -78,8 +78,6 @@ void print_help() {
 	std::cout << "usage: stdbuild [*.cpp] [-r | --run] [-v | --verbose] [-h | --help] [--create <name>] [-i] [-j n]\n";
 	std::cout << "[*.cpp]             The last cpp file specified in the parameter list will be used as the build script.\n";
 	std::cout << "                    If a cpp file is not specified, build.cpp will be used as the default.\n";
-	std::cout << "[-r | --run]        Run the executable after compilation is finished.\n";
-	std::cout << "[-v | --verbose]    Display detailed information during the build process.\n";
 	std::cout << "[-h | --help]       Displays this.\n";
 	std::cout << "[--create <name>]   Creates a basic project directory structure and a build script in the current\n";
 	std::cout << "                    directory with the given name.\n";
@@ -87,8 +85,6 @@ void print_help() {
 }
 
 int main(int argc, char** argv) {
-	bool run_after_build = false;
-	bool verbose = false;
 	const fs::path stdbuild_path = home_directory().parent_path() / "include";
 	bool include_stdbuild{ false };
 	std::string build_file_path;
@@ -100,11 +96,7 @@ int main(int argc, char** argv) {
 	// Check for run & verbose commands
 	for(auto i = 0; i < argc; ++i) {
 		std::string arg{ argv[i] };
-		if(arg == "-r" || arg == "--run") {
-			run_after_build = true;
-		} else if(arg == "-v" || arg == "--verbose") {
-			verbose = true;
-		} else if(arg.ends_with(".cpp")) {
+		if(arg.ends_with(".cpp")) {
 			build_file_path = arg;
 		} else if(arg == "--create") {
 			std::cout << "Create project structure - ";
@@ -132,7 +124,7 @@ int main(int argc, char** argv) {
 	}
 
 	std::ostringstream ss;
-	ss << "g++ -std=c++20 ";
+	ss << "g++ ";
 
 	if(include_stdbuild) {
 		ss << "-I" << stdbuild_path << ' ';
@@ -140,25 +132,16 @@ int main(int argc, char** argv) {
 
 	ss << build_file_path;
 
-	if(run_after_build) {
-		ss << " -D_STD_BUILD_RUN";
-	}
-
-	if(verbose) {
-		ss << " -D_STD_BUILD_VERBOSE";
-	}
-
-	ss << " -o stdbuild-autogen";
+	ss << " -o build.exe";
 
 	int ret = std::system(ss.str().c_str());
 
-	if(std::filesystem::exists("stdbuild-autogen.exe") && ret == 0) {
-		int ret = std::system("stdbuild-autogen");
+	if(std::filesystem::exists("build.exe") && ret == 0) {
+		int ret = std::system("build");
 		if(ret) {
 			return 1; // cause stdbuild to fail if the build fails
 		}
-		// std::system("del stdbuild-autogen.exe");
 	} else {
-		std::cout << "Failed to generate stdbuild-autogen.\n";
+		std::cout << "Failed to generate build program.\n";
 	}
 }
