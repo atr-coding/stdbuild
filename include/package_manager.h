@@ -27,8 +27,8 @@ namespace _STD_BUILD {
 		// Remove duplicate dependencies.
 		std::sort(dependencies.begin(), dependencies.end(),
 		          [](const external_dependency* a, const external_dependency* b) { return a->m_name < b->m_name; });
-		std::unique(dependencies.begin(), dependencies.end(),
-		            [](const external_dependency* a, const external_dependency* b) { return a->m_name == b->m_name; });
+		dependencies.erase(std::unique(dependencies.begin(), dependencies.end(),
+		            [](const external_dependency* a, const external_dependency* b) { return a->m_name == b->m_name; }), dependencies.end());
 
 		// Iterate through every external dependency.
 		// If the directory already exists, then we assume it's been downloaded and

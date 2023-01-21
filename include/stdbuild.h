@@ -24,7 +24,16 @@ namespace _STD_BUILD {
 
 	void create(package& pkg) {
 		_init(pkg);
-		Compiler compiler(compilers::gcc);
+		Compiler compiler;
+		if(is_clang()) {
+			compiler.set_profile(compilers::clang);
+		} else if(is_gcc()) {
+			compiler.set_profile(compilers::gcc);
+		} else if(is_windows()) {
+			compiler.set_profile(compilers::msvc);
+		} else {
+			throw build_exception("A supported compiler (msvc, g++, clang) must be used.");
+		}
 		create_binary(compiler, pkg, true);
 	}
 

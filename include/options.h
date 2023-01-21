@@ -70,7 +70,7 @@ namespace _STD_BUILD {
 	}
 
 	inline bool is_unix() {
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__GNUG__)
 		return true;
 #else
 		return false;
@@ -102,7 +102,7 @@ namespace _STD_BUILD {
 	}
 
 	inline bool is_gcc() {
-#if defined(__GNUC__)
+#if defined(__GNUC__) || defined(__GNUG__)
 		return true;
 #else
 		return false;
