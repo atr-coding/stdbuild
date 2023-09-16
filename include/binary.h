@@ -43,7 +43,7 @@ namespace _STD_BUILD {
 			// libraries.push_back(create_binary(compiler, *d));
 
 			if(d->type != executable && d->type != header_library) {
-				pkg.libraries.add(d->name);
+				pkg.libraries.add(d->name + ".lib");
 			}
 
 			// Add this dependencies include/lib directories/libraries to
@@ -82,6 +82,15 @@ namespace _STD_BUILD {
 		const auto bin_dir = options().bin_dir;
 		const auto build_dir = options().build_dir;
 		const auto package_build_dir = build_dir / pkg.name;
+
+		// Create the desired package build directory if it doesn't exist already.
+		if(!fs::exists(package_build_dir)) {
+			try {
+				fs::create_directories(package_build_dir);
+			} catch([[maybe_unused]] const std::exception& e) {
+				throw build_exception("Failed to create build directory for package " + package_build_dir.string());
+			}
+		}
 
 		pkg.pre();
 

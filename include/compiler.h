@@ -142,8 +142,8 @@ namespace _STD_BUILD {
 			"cl", "/DEBUG",
 			[](const fs::path& pkg_build_dir, const package& pkg, const fs::path& source_file) -> std::string {
 			    std::stringstream output;
-			    output << "cl /c " << pkg.flags;
-			    for(const auto& i : pkg.include_dirs) { output << "/I:" << i.value.lexically_normal() << ' '; }
+			    output << "cl /nologo /c " << pkg.flags;
+			    for(const auto& i : pkg.include_dirs) { output << "/I" << i.value.lexically_normal() << ' '; }
 			    output << pkg.dir / source_file << " /Fo:"
 			           << (pkg_build_dir / source_file.stem()).replace_extension(".obj").lexically_normal();
 			    return output.str();
@@ -172,6 +172,9 @@ namespace _STD_BUILD {
 				           << (bin_dir / pkg.name).lexically_normal().replace_extension(".exe") << " /link " << lib_dirs.str()
 				           << libs.str();
 			    } else {
+					if(pkg.type == static_library) {
+						output << "lib /nologo " << obj_files.str() << "/OUT:" << (bin_dir / pkg.name).replace_extension(".lib");
+					}
 				    // if(pkg.type == static_library) {
 					//     output << "llvm-ar rcs ";
 				    // } else if(pkg.type == shared_library) {
