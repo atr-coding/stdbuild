@@ -14,6 +14,8 @@
 #include <memory>
 #include <exception>
 #include <functional>
+#include <thread>
+#include <future>
 
 #define _STD_BUILD stdbuild
 #define _STD_BUILD_OUTPUT(str) std::cout << str;

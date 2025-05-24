@@ -2,7 +2,6 @@
 
 #include "base.h"
 #include "options.h"
-#include "threadpool.h"
 #include "compiler.h"
 
 namespace _STD_BUILD {
@@ -43,27 +42,21 @@ namespace _STD_BUILD {
 			// libraries.push_back(create_binary(compiler, *d));
 
 			if(d->type != executable && d->type != header_library) {
-				pkg.libraries.add(d->name + ".lib");
+				pkg.libraries.push_back(d->name + ".lib");
 			}
 
 			// Add this dependencies include/lib directories/libraries to
 			// our main pkg's include/lib directories
 			for(const auto& inc_dir : d->include_dirs) {
-				if(inc_dir.access_level == access::all) {
-					pkg.include_dirs.add(inc_dir);
-				}
+					pkg.include_dirs.push_back(inc_dir);
 			}
 
 			for(const auto& lib_dir : d->library_dirs) {
-				if(lib_dir.access_level == access::all) {
-					pkg.library_dirs.add(lib_dir);
-				}
+					pkg.library_dirs.push_back(lib_dir);
 			}
 
 			for(const auto& lib : d->libraries) {
-				if(lib.access_level == access::all) {
-					pkg.libraries.add(lib);
-				}
+					pkg.libraries.push_back(lib);
 			}
 		}
 
@@ -74,8 +67,8 @@ namespace _STD_BUILD {
 	// packages working directory to them.
 	// This transforms the directories from local to absolute.
 	inline void _transform_pkg_directories(package& pkg) noexcept {
-		for(auto& id : pkg.include_dirs) { id.value = pkg.dir / id.value; }
-		for(auto& ld : pkg.library_dirs) { ld.value = pkg.dir / ld.value; }
+		for(auto& id : pkg.include_dirs) { id = pkg.dir / id; }
+		for(auto& ld : pkg.library_dirs) { ld = pkg.dir / ld; }
 	}
 
 	void create_binary(const Compiler& compiler, package& pkg, bool build_dependencies = false) {
@@ -121,13 +114,13 @@ namespace _STD_BUILD {
 		if(pkg.pre_built == false) {
 			// Add debug flag
 			if(debugging_enabled()) {
-				pkg.flags += compiler.profile().debug_flag;
+				pkg.flags.push_back(compiler.profile().debug_flag);
 			}
 
 			// Load Cache
 			__cache::cache_storage cache;
 			const auto cache_path = package_build_dir / "cache";
-			path_list files_to_compile = __cache::load_cache(cache_path, cache, pkg);
+			std::list<fs::path> files_to_compile = __cache::load_cache(cache_path, cache, pkg);
 
 			// Compile
 			compile(compiler, package_build_dir, pkg, files_to_compile);

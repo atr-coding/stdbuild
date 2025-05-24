@@ -47,7 +47,7 @@ namespace _STD_BUILD {
 			[](const fs::path& pkg_build_dir, const package& pkg, const fs::path& source_file) -> std::string {
 			    std::stringstream output;
 			    output << "g++ -c " << pkg.flags;
-			    for(const auto& i : pkg.include_dirs) { output << "-I" << i.value.lexically_normal() << ' '; }
+			    for(const auto& i : pkg.include_dirs) { output << "-I" << i.lexically_normal() << ' '; }
 			    output << pkg.dir / source_file << " -o "
 			           << (pkg_build_dir / source_file.stem()).replace_extension(".o").lexically_normal();
 			    return output.str();
@@ -58,7 +58,7 @@ namespace _STD_BUILD {
 			    // Convert all source file names into corresponding object file names.
 			    std::stringstream obj_files;
 			    for(const auto& source : pkg.sources) {
-				    obj_files << (pkg_build_dir / (source.value.stem().replace_extension(".o"))).lexically_normal()
+				    obj_files << (pkg_build_dir / (source.stem().replace_extension(".o"))).lexically_normal()
 				              << ' ';
 			    }
 
@@ -68,9 +68,9 @@ namespace _STD_BUILD {
 				    lib_dirs << "-L" << fs::path{ "./bin/" }.lexically_normal() << ' ';
 
 				    for(const auto& lib_dir : pkg.library_dirs) {
-					    lib_dirs << "-L" << lib_dir.value.lexically_normal() << ' ';
+					    lib_dirs << "-L" << lib_dir.lexically_normal() << ' ';
 				    }
-				    for(const auto& lib : pkg.libraries) { libs << "-l" << lib.value << ' '; }
+				    for(const auto& lib : pkg.libraries) { libs << "-l" << lib << ' '; }
 
 				    output << "g++ " << obj_files.str() << "-o "
 				           << (bin_dir / pkg.name).lexically_normal().replace_extension(".exe") << ' ' << lib_dirs.str()
@@ -95,7 +95,7 @@ namespace _STD_BUILD {
 			[](const fs::path& pkg_build_dir, const package& pkg, const fs::path& source_file) -> std::string {
 			    std::stringstream output;
 			    output << "clang -c " << pkg.flags;
-			    for(const auto& i : pkg.include_dirs) { output << "-I" << i.value.lexically_normal() << ' '; }
+			    for(const auto& i : pkg.include_dirs) { output << "-I" << i.lexically_normal() << ' '; }
 			    output << pkg.dir / source_file << " -o "
 			           << (pkg_build_dir / source_file.stem()).replace_extension(".o").lexically_normal();
 			    return output.str();
@@ -106,7 +106,7 @@ namespace _STD_BUILD {
 			    // Convert all source file names into corresponding object file names.
 			    std::stringstream obj_files;
 			    for(const auto& source : pkg.sources) {
-				    obj_files << (pkg_build_dir / (source.value.stem().replace_extension(".o"))).lexically_normal()
+				    obj_files << (pkg_build_dir / (source.stem().replace_extension(".o"))).lexically_normal()
 				              << ' ';
 			    }
 
@@ -116,9 +116,9 @@ namespace _STD_BUILD {
 				    lib_dirs << "-L" << fs::path{ "./bin/" }.lexically_normal() << ' ';
 
 				    for(const auto& lib_dir : pkg.library_dirs) {
-					    lib_dirs << "-L" << lib_dir.value.lexically_normal() << ' ';
+					    lib_dirs << "-L" << lib_dir.lexically_normal() << ' ';
 				    }
-				    for(const auto& lib : pkg.libraries) { libs << "-l" << lib.value << ' '; }
+				    for(const auto& lib : pkg.libraries) { libs << "-l" << lib << ' '; }
 
 				    output << "clang " << obj_files.str() << "-o "
 				           << (bin_dir / pkg.name).lexically_normal().replace_extension(".exe") << ' ' << lib_dirs.str()
@@ -143,7 +143,7 @@ namespace _STD_BUILD {
 			[](const fs::path& pkg_build_dir, const package& pkg, const fs::path& source_file) -> std::string {
 			    std::stringstream output;
 			    output << "cl /nologo /c " << pkg.flags;
-			    for(const auto& i : pkg.include_dirs) { output << "/I" << i.value.lexically_normal() << ' '; }
+			    for(const auto& i : pkg.include_dirs) { output << "/I" << i.lexically_normal() << ' '; }
 			    output << pkg.dir / source_file << " /Fo:"
 			           << (pkg_build_dir / source_file.stem()).replace_extension(".obj").lexically_normal();
 			    return output.str();
@@ -154,7 +154,7 @@ namespace _STD_BUILD {
 			    // Convert all source file names into corresponding object file names.
 			    std::stringstream obj_files;
 			    for(const auto& source : pkg.sources) {
-				    obj_files << (pkg_build_dir / (source.value.stem().replace_extension(".obj"))).lexically_normal()
+				    obj_files << (pkg_build_dir / (source.stem().replace_extension(".obj"))).lexically_normal()
 				              << ' ';
 			    }
 
@@ -164,9 +164,9 @@ namespace _STD_BUILD {
 				    lib_dirs << "/LIBPATH:" << fs::path{ "./bin/" }.lexically_normal() << ' ';
 
 				    for(const auto& lib_dir : pkg.library_dirs) {
-					    lib_dirs << "/LIBPATH:" << lib_dir.value.lexically_normal() << ' ';
+					    lib_dirs << "/LIBPATH:" << lib_dir.lexically_normal() << ' ';
 				    }
-				    for(const auto& lib : pkg.libraries) { libs << lib.value << ' '; }
+				    for(const auto& lib : pkg.libraries) { libs << lib << ' '; }
 
 				    output << "cl /nologo " << obj_files.str() << "/Fe:"
 				           << (bin_dir / pkg.name).lexically_normal().replace_extension(".exe") << " /link " << lib_dirs.str()

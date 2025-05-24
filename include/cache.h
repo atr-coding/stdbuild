@@ -57,7 +57,7 @@ namespace _STD_BUILD {
 #endif
 		}
 
-		fs::path find_file(const path_list& include_directories, const fs::path& parent_dir, const fs::path& file) {
+		fs::path find_file(const std::list<fs::path>& include_directories, const fs::path& parent_dir, const fs::path& file) {
 			if(fs::exists(file)) {
 				return file;
 			}
@@ -66,7 +66,7 @@ namespace _STD_BUILD {
 			}
 
 			for(const auto& dir : include_directories) {
-				const auto prepended_file_loc = dir.value / file;
+				const auto prepended_file_loc = fs::path(dir) / file;
 				if(fs::exists(prepended_file_loc)) {
 					return prepended_file_loc;
 				}
@@ -75,15 +75,15 @@ namespace _STD_BUILD {
 			std::stringstream ss;
 			ss << "Failed to find the file: " << file << " in any of the following directories:\n";
 			ss << "  " << parent_dir << '\n';
-			for(const auto& id : include_directories) { ss << "  " << id.value << '\n'; }
+			for(const auto& id : include_directories) { ss << "  " << id << '\n'; }
 
 			throw cache_exception(ss.str());
 		};
 
-		path_list get_includes_unsorted(const path_list& include_directories, const fs::path& file_name) {
+		std::list<fs::path> get_includes_unsorted(const std::list<fs::path>& include_directories, const fs::path& file_name) {
 			const fs::path parent_dir = file_name.parent_path();
 
-			path_list includes;
+			std::list<fs::path> includes;
 
 			const auto is_standard_library_header = [&](const std::string& file) -> bool {
 				return (std::find(std_header_files.begin(), std_header_files.end(), file) != std_header_files.end());
@@ -109,12 +109,12 @@ namespace _STD_BUILD {
 							try {
 								const fs::path file_path =
 								    find_file(include_directories, parent_dir, fs::path(line)).lexically_normal();
-								includes.get().push_back(file_path);
+								includes.push_back(file_path);
 
 								// Check if the dependency has dependencies.
 								for(const auto& sub_include_path :
 								    get_includes_unsorted(include_directories, file_path)) {
-									includes.get().push_back(sub_include_path);
+									includes.push_back(sub_include_path);
 								}
 							} catch(cache_exception& e) { _STD_BUILD_VERBOSE_OUTPUT(e.what()); }
 						}
@@ -127,38 +127,37 @@ namespace _STD_BUILD {
 			return includes;
 		}
 
-		path_list get_includes(const path_list& include_directories, const fs::path& file_name) {
+		std::list<fs::path> get_includes(const std::list<fs::path>& include_directories, const fs::path& file_name) {
 			// get list of includes for each cpp file that are unsorted and contains duplicates
-			path_list unsorted_includes = get_includes_unsorted(include_directories, file_name);
-			auto& data = unsorted_includes.get();
+			std::list<fs::path> unsorted_includes = get_includes_unsorted(include_directories, file_name);
 
 			// Sort and remove duplicates
-			std::sort(data.begin(), data.end());
-			data.erase(std::unique(data.begin(), data.end()), data.end());
+			unsorted_includes.sort();
+			unsorted_includes.erase(std::unique(unsorted_includes.begin(), unsorted_includes.end()), unsorted_includes.end());
 			return unsorted_includes;
 		}
 
 		struct lwt_file_block {
 			fs::path path;
 			int64_t lwt{ 0 };
-			path_list dependent_files;
+			std::list<fs::path> dependent_files;
 
 			lwt_file_block() = default;
 			lwt_file_block(const fs::path _path) : path(_path) { lwt = get_lwt(_path); }
 			lwt_file_block(const fs::path _path, int64_t _lwt) : path(_path), lwt(_lwt) {}
-			lwt_file_block(const fs::path _path, int64_t _lwt, const path_list& _dependent_files)
+			lwt_file_block(const fs::path _path, int64_t _lwt, const std::list<fs::path>& _dependent_files)
 			    : path(_path), lwt(_lwt), dependent_files(_dependent_files) {}
 
 			void reload_lwt() { lwt = get_lwt(path); }
 
-			operator ListElement<fs::path>() { return ListElement<fs::path>{ path }; }
-			bool operator==(const ListElement<fs::path>& file) { return (path == file.value); }
-			friend bool operator==(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
-				return (file.value == lwtfb.path);
+			operator fs::path() { return path; }
+			bool operator==(const fs::path& file) { return (path == file); }
+			friend bool operator==(const fs::path& file, const lwt_file_block& lwtfb) {
+				return (file == lwtfb.path);
 			}
-			bool operator<(const ListElement<fs::path>& file) { return (path < file.value); }
-			friend bool operator<(const ListElement<fs::path>& file, const lwt_file_block& lwtfb) {
-				return (file.value < lwtfb.path);
+			bool operator<(const fs::path& file) { return (path < file); }
+			friend bool operator<(const fs::path& file, const lwt_file_block& lwtfb) {
+				return (file < lwtfb.path);
 			}
 
 			friend std::ofstream& operator<<(std::ofstream& stream, const lwt_file_block& block) {
@@ -170,7 +169,7 @@ namespace _STD_BUILD {
 
 				// iterate through list of dependent files and write their paths out
 				for(const auto& source : block.dependent_files) {
-					serialization::write_string(stream, source.value.string());
+					serialization::write_string(stream, source.string());
 				}
 
 				return stream;
@@ -187,12 +186,12 @@ namespace _STD_BUILD {
 				// read in the number of source files for this header
 				std::size_t source_file_count{ 0 };
 				serialization::read_size_t(stream, source_file_count);
-				block.dependent_files.get().reserve(source_file_count);
+				block.dependent_files.resize(source_file_count);
 
 				for(std::size_t i = 0; i < source_file_count; ++i) {
 					std::string source_path;
 					serialization::read_string(stream, source_path);
-					block.dependent_files.get().push_back({ source_path });
+					block.dependent_files.push_back( fs::path(source_path));
 				}
 
 				return stream;
@@ -222,7 +221,7 @@ namespace _STD_BUILD {
 		struct cache_storage {
 		private:
 			struct cache_changes {
-				path_list added, removed, modified;
+				std::list<fs::path> added, removed, modified;
 			};
 
 		public:
@@ -260,11 +259,11 @@ namespace _STD_BUILD {
 			}
 
 			void check_for_file_changes() {
-				auto& data = changes.modified.get();
+				auto& data = changes.modified;
 
 				for(const auto& source : source_files) {
 					if(get_lwt(source.path) > source.lwt) {
-						data.push_back(source.path);
+						data.emplace_back(source.path);
 					}
 				}
 
@@ -275,13 +274,13 @@ namespace _STD_BUILD {
 				}
 
 				// Sort and remove any duplicates
-				std::sort(data.begin(), data.end());
+				data.sort();
 				data.erase(std::unique(data.begin(), data.end()), data.end());
 			}
 
 			// TODO: This is horrible. Clean it up.
 			//  To update the cache we need to deal with the following: modified/added/removed source files.
-			void update(const path_list& include_dirs) {
+			void update(const std::list<fs::path>& include_dirs) {
 				for(const auto& modded_file : changes.modified) {
 					// Verify that the modded file does exist in our cache source file list.
 					const auto it = std::find(source_files.begin(), source_files.end(), modded_file);
@@ -301,11 +300,11 @@ namespace _STD_BUILD {
 								                     modded_file);
 								if(it3 == (*it2).dependent_files.end()) {
 									// File doesn't exist in the headers dependency list, so add it.
-									(*it2).dependent_files.add(modded_file);
+									(*it2).dependent_files.push_back(modded_file);
 								}
 							} else {
 								header_files.push_back(
-								    { dep_header.value, get_lwt(dep_header.value), { modded_file } });
+								    { dep_header, get_lwt(dep_header), { modded_file } });
 							}
 						}
 					}
@@ -321,7 +320,7 @@ namespace _STD_BUILD {
 						(*it).reload_lwt();
 					} else {
 						// If not, then add it to the source list.
-						source_files.push_back({ new_file.value });
+						source_files.push_back(new_file);
 					}
 				}
 
@@ -338,7 +337,7 @@ namespace _STD_BUILD {
 								const auto it3 = std::find((*it2).dependent_files.begin(), (*it2).dependent_files.end(),
 								                           removed_file);
 								if(it3 != (*it2).dependent_files.end()) {
-									(*it2).dependent_files.get().erase(it3);
+									(*it2).dependent_files.erase(it3);
 								}
 							}
 						}
@@ -347,9 +346,9 @@ namespace _STD_BUILD {
 				}
 			}
 
-			void test(const path_list& cpp_files) {
+			void test(const std::list<fs::path>& cpp_files) {
 				find_differences(cpp_files.begin(), cpp_files.end(), source_files.begin(), source_files.end(),
-				                 std::back_inserter(changes.added.get()), std::back_inserter(changes.removed.get()));
+				                 std::back_inserter(changes.added), std::back_inserter(changes.removed));
 				check_for_file_changes();
 			}
 
@@ -395,14 +394,14 @@ namespace _STD_BUILD {
 				for(const auto& source_file : cache.source_files) {
 					stream << '\t' << source_file.path.string() << '\n';
 					for(const auto& dep : source_file.dependent_files) {
-						stream << "\t\t" << dep.value.string() << '\n';
+						stream << "\t\t" << dep.string() << '\n';
 					}
 				}
 				stream << "Header files:\n";
 				for(const auto& header_file : cache.header_files) {
 					stream << '\t' << header_file.path.string() << '\n';
 					for(const auto& dep : header_file.dependent_files) {
-						stream << "\t\t" << dep.value.string() << '\n';
+						stream << "\t\t" << dep.string() << '\n';
 					}
 				}
 
@@ -420,10 +419,10 @@ namespace _STD_BUILD {
 		};
 
 		cache_storage build(const package& pkg) {
-			std::unordered_map<fs::path, path_list> cpp_file_dependencies;
+			std::unordered_map<fs::path, std::list<fs::path>> cpp_file_dependencies;
 			for(const auto& file : pkg.sources) {
 				// Iterate through every file and verify it exists.
-				const auto full_file_path = (pkg.dir / file.value).lexically_normal();
+				const auto full_file_path = (pkg.dir / file).lexically_normal();
 				if(fs::exists(full_file_path)) {
 					// Clean up the slashes uses lexically normal.
 					// const auto lexically_normal_file_path = abs_file_path.lexically_normal();
@@ -440,13 +439,13 @@ namespace _STD_BUILD {
 			// Invert the dependency tree, so that we have a list of header files that contains the source files that
 			// depend on them. By checking for a change in a header, we can know which source files need to be
 			// recompiled because of that change.
-			std::unordered_map<fs::path, path_list> headers;
+			std::unordered_map<fs::path, std::list<fs::path>> headers;
 
 			for(const auto& [cpp_file, dependencies] : cpp_file_dependencies) {
 				for(const auto& dep : dependencies) {
-					auto& hv = headers[dep.value];
+					auto& hv = headers[dep];
 					if(std::find(hv.begin(), hv.end(), cpp_file) == hv.end()) {
-						hv.get().push_back(cpp_file);
+						hv.push_back(cpp_file);
 					}
 				}
 			}
@@ -454,7 +453,7 @@ namespace _STD_BUILD {
 			cache_storage cache;
 
 			for(const auto& source : pkg.sources) {
-				cache.source_files.push_back({ (pkg.dir / source.value).lexically_normal() });
+				cache.source_files.push_back({ (pkg.dir / source).lexically_normal() });
 			}
 
 			for(const auto& header : headers) {
@@ -481,7 +480,7 @@ namespace _STD_BUILD {
 			return { false, {} };
 		}
 
-		path_list load_cache(const fs::path& cache_path, cache_storage& cache, const package& pkg) {
+		std::list<fs::path> load_cache(const fs::path& cache_path, cache_storage& cache, const package& pkg) {
 			if(options().use_caching) {
 				_STD_BUILD_VERBOSE_OUTPUT("  Loading cache from " << cache_path.lexically_normal().string() << '\n');
 
@@ -496,9 +495,9 @@ namespace _STD_BUILD {
 						return std::move(pkg.sources);
 					} else {
 						cache.test(pkg.sources);
-						path_list changes;
-						changes += cache.changes.added;
-						changes += cache.changes.modified;
+						std::list<fs::path> changes;
+						changes.splice(changes.end(), cache.changes.added);
+						changes.splice(changes.end(), cache.changes.modified);
 						_STD_BUILD_VERBOSE_OUTPUT("    Status: Success [+" << cache.changes.added.size() << " -"
 						                                                   << cache.changes.removed.size() << " *"
 						                                                   << cache.changes.modified.size() << "]\n");

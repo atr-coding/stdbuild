@@ -6,20 +6,15 @@
 #include "error.h"
 #include "cache.h"
 #include "compile.h"
-#include "link.h"
 #include "package.h"
 #include "version.h"
-#include "link.h"
 #include "binary.h"
-#include "dependency.h"
-#include "package_manager.h"
 
 namespace _STD_BUILD {
 	// This function acts as an entry point where we can put anything that we want to run
 	// before any build regardless of type.
 	void _init(const package& pkg) {
 		_verify_bin_and_build_directories(options().bin_dir, options().build_dir, pkg.name);
-		_get_external_dependencies(pkg);
 	}
 
 	void create(package& pkg) {

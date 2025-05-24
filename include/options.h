@@ -1,7 +1,6 @@
 #pragma once
 
 #include "base.h"
-#include "threadpool.h"
 
 namespace _STD_BUILD {
 
@@ -11,7 +10,6 @@ namespace _STD_BUILD {
 		std::string output_redirect_str{ " 2>build/error" }; //">build/output 2>build/error" };
 		// std::string output_file{ "build/output" };
 		std::string error_file{ "build/error" };
-		ThreadPool<CompileCommand> tpool;
 		fs::path package_directory{ "packages/" };
 		bool debug{ false };
 		bool use_caching{ true };
@@ -118,11 +116,6 @@ namespace _STD_BUILD {
 	}
 
 	inline void run_after_build(bool value) { options().run_after_build = value; }
-
-	inline void enable_multithreading(uint16_t thread_count) {
-		_STD_BUILD_VERBOSE_OUTPUT("Multithreading enabled with " << thread_count << " threads.\n");
-		options().tpool.init(thread_count);
-	}
 
 	inline void enable_caching() {
 		_STD_BUILD_VERBOSE_OUTPUT("Caching enabled.\n");

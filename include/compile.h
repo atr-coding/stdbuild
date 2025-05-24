@@ -3,34 +3,33 @@
 #include "base.h"
 #include "command.h"
 #include "package.h"
-#include "threadpool.h"
 #include "compiler.h"
 
 namespace _STD_BUILD {
 
 	////////////// Compilation //////////////
 
-	void compile(const Compiler& compiler, const fs::path& build_dir, const package& pkg, const path_list& sources) {
+	void compile(const Compiler& compiler, const fs::path& build_dir, const package& pkg, const std::list<fs::path>& sources) {
 		if(sources.size() > 0) {
-			auto& tpool = options().tpool;
 			_STD_BUILD_VERBOSE_OUTPUT("  Compiling...\n");
 
+			std::vector<std::future<void>> compilations;
+
 			for(const auto& file : sources) {
-				std::string compile_str = compiler.compile(build_dir, pkg, file.value);
-				
-				// If the thread pool has been initialized then add this compilation to it.
-				// If it hasn't, then just run it in this thread.
-				// CompileCommand cmd(output.str(), file.value.string());
-				CompileCommand cmd(compile_str, file.value.string());
-				if(tpool.initialized()) {
-					tpool.addTask(std::move(cmd));
-				} else {
-					cmd.execute();
-				}
+				std::string compile_str = compiler.compile(build_dir, pkg, file);
+
+				compilations.emplace_back(std::async(std::launch::async, [&](const std::string& cmd, const std::string& file){
+					if(command(cmd)){
+						throw compile_exception("There was an error while compiling: " + file, true);
+					}
+				}, compile_str, file.string()));
 			}
 
-			// Wait for all the compilations to complete before continuing.
-			tpool.wait();
+			// Wait for all tasks to finish.
+			// The get method will propagate any compile_exceptions.
+			for(auto& c : compilations) {
+				c.get();
+			}
 		}
 	}
 
